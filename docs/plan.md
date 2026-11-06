@@ -1,62 +1,78 @@
-# Kế hoạch nhóm trong 14 ngày
+# Kế hoạch 14 ngày xây dựng dashboard trình diễn 2PC
 
-Vai trò tạm: SV1 là leader và coordinator, SV2 là Resource Managers, SV3 là client và chaos. Thay bằng họ tên/MSSV khi nhận việc. Ngày 1 là ngày nhóm chốt khởi động; nếu bắt đầu 05/11/2026 thì Ngày 14 là 18/11/2026. Đây là kế hoạch đề xuất, không phải lịch sử làm việc đã diễn ra. Mã nguồn bàn giao là baseline đã kiểm thử, nhóm cần đọc, kiểm chứng, nhận quyền sở hữu và hoàn thiện hồ sơ.
+## Mục tiêu và trạng thái
+
+Sản phẩm mục tiêu là ứng dụng web cục bộ đặt combo một chỗ máy bay và một phòng khách sạn, quan sát giao dịch 2PC và điều khiển Coordinator, Airline, Hotel trên trình duyệt. CLI tiếp tục phục vụ kiểm thử và đối chiếu. Xem [đặc tả dashboard](DASHBOARD_SPEC.md) để triển khai UI, API, quản lý tiến trình và demo.
+
+**Dashboard, API web và bộ quản lý tiến trình là phần sẽ xây dựng.** Repo hiện có backend ba dịch vụ, CLI và 14 bài kiểm thử. Tại commit `1fc1b274de111f009a3746a894038a8fe72501fa`, [CI](https://github.com/KhoaTryHard/travel-reservation-2pc/actions/runs/42186762833) đã chạy đủ 14 bài và đạt trên Ubuntu/Windows với Python 3.10/3.13. Đây là bằng chứng backend, chưa phải bằng chứng dashboard hoặc diễn tập trên máy thuyết trình.
+
+Giữ 14 ngày, tổng **126 giờ công dự kiến, mỗi người 42 giờ**, với điều kiện tận dụng backend hiện có. Ngày 1 do nhóm xác nhận; chưa ấn định ngày lịch hoặc ghi nhận % hoàn thành. Đăng nhập khách hàng, thanh toán, lịch bay/ngày nhận phòng và triển khai Internet ngoài phạm vi bản này.
+
+## Phân công và WBS
+
+| Mã | Công việc | Chủ trì | Giờ | Hạn | Điều kiện nghiệm thu |
+|---|---|---|---:|---|---|
+| W01 | Rà soát Coordinator và contract | Nguyễn Đăng Khoa — SV1 | 8 | D2 | Giải thích được token, quyết định bền vững, ACK/replay; chốt contract web |
+| W02 | API dashboard, tổng hợp và tải | SV1 | 14 | D7 | Booking/retry, overview, chi tiết, load dùng dữ liệu thật |
+| W03 | Tích hợp và review | SV1 | 8 | D10 | UI/API/lifecycle tích hợp, xử lý lỗi từng node |
+| W04 | Kiến trúc và báo cáo | SV1 | 12 | D14 | Báo cáo/source thống nhất, review và bản nộp |
+| W05 | Rà soát RM và khóa | Trần Lê Quang Hữu — SV2 | 8 | D2 | Chốt cách hiển thị tồn, PREPARED và khóa |
+| W06 | Bộ quản lý tiến trình | SV2 | 18 | D7 | Chạy/dừng/restart đúng child; giữ DB; xử lý cổng bận |
+| W07 | Kiểm thử lifecycle/recovery | SV2 | 10 | D10 | Web sống khi node chết; recovery dùng DB cũ; không tác động tiến trình ngoài |
+| W08 | Tài liệu dữ liệu/vận hành | SV2 | 6 | D12 | Giải thích lifecycle, lưu bền vững và giới hạn |
+| W09 | Dashboard tiếng Việt | Dương Quốc Khánh — SV3 | 20 | D9 | Đặt/retry, tồn, giao dịch, chi tiết, điều khiển demo |
+| W10 | Kiểm thử browser/demo | SV3 | 12 | D10 | Double-click/reload, stale/unknown, fault/load, demo chính |
+| W11 | Hướng dẫn và đóng gói | SV3 | 10 | D14 | Máy demo Chrome/Edge, bằng chứng thật, gói chạy sạch |
+
+SV1 sở hữu Coordinator/API web; SV2 sở hữu RM/process manager; SV3 sở hữu frontend/demo. Vòng review: SV2 review SV1, SV3 review SV2, SV1 review SV3. Bổ sung kiểm thử API/lifecycle/browser bên cạnh 14 kiểm thử backend. Không đổi ý nghĩa RPC hoặc 2PC để phục vụ animation.
 
 ## Lịch thực hiện
 
-| Ngày | SV1 | SV2 | SV3 | Cổng kiểm tra |
+| Ngày | SV1 — Nguyễn Đăng Khoa | SV2 — Trần Lê Quang Hữu | SV3 — Dương Quốc Khánh | Cổng kiểm tra |
 |---|---|---|---|---|
-| 1 | Chốt phạm vi, backlog | Mô hình tồn và booking | Môi trường, kịch bản demo | Đồng thuận phạm vi và DoD |
-| 2 | State machine và RPC | Schema và khóa | Contract client và test | API v1 được cả nhóm duyệt |
-| 3 | BEGIN và token | PREPARE và tentative writes | CLI begin/status | Test từng module |
-| 4 | END và biểu quyết | COMMIT/ABORT idempotent | CLI booking/load | Luồng thành công và hết chỗ |
-| 5 | Quyết định bền vững | Nhật ký và khóa bền vững | Chaos delay/crash | Log được lưu trước phản hồi |
-| 6 | Recovery coordinator | Restart participant | Test crash tự động | Tích hợp lần 1 |
-| 7 | Review code và sửa lỗi | Kiểm tra tồn và rollback | Smoke test toàn hệ thống | M1 đạt happy path và abort |
-| 8 | Replay và ACK | Tombstone thông điệp muộn | Test timeout và retry | Không trừ tồn hai lần |
-| 9 | Test trước/sau quyết định | Kiểm tra khóa sau crash | Load đồng thời | M2 đạt ma trận lỗi |
-| 10 | Rà soát bất biến | Review persistence | Chạy toàn bộ test | Đóng băng tính năng |
-| 11 | Viết phân tích, kiến trúc | Viết dữ liệu và recovery | Viết test, hướng dẫn chạy | Báo cáo bản 1 |
-| 12 | Ghép và rà báo cáo | Kiểm tra code sạch | Chạy trên máy demo | M3 bản ứng viên bàn giao |
-| 13 | Điều phối diễn tập | Demo participant recovery | Demo chaos và retry | Sửa lỗi, dự phòng |
-| 14 | Chốt Word và đóng gói | Kiểm tra mã nguồn cuối | Test lại và ghi bằng chứng | M4 nghiệm thu, nộp |
+| D1 | Xác minh baseline, backlog | Rà RM/DB/khóa | Rà CLI, luồng màn hình | Nhận quyền sở hữu |
+| D2 | Chốt API/trạng thái | Chốt lifecycle/cổng/DB | Chốt bố cục và test plan | Đồng thuận contract/demo |
+| D3 | Overview và health | Start tiến trình sở hữu | Khung UI, thẻ dịch vụ/tồn | Đọc dữ liệu thật |
+| D4 | Booking và tra cứu | Stop/restart giữ DB | Form đặt/bảng giao dịch | Booking end-to-end |
+| D5 | Unknown/retry | Cổng bận/chống lặp | Lưu token/payload, reload | Không đặt trùng |
+| D6 | Chi tiết, fault, load | Giám sát crash/log | Chi tiết ACK/events, lifecycle | Web sống khi node chết |
+| D7 | Tích hợp/review | Ownership/cleanup | Chạy success/abort trên web | M1 — happy path và lifecycle |
+| D8 | Replay/ACK | PREPARED qua restart | Fault và mất kết nối | Crash trước/sau quyết định |
+| D9 | Load/timeout | Tombstone/recovery | Hoàn thiện fault/load/retry | M2 — đủ demo chính |
+| D10 | Hồi quy/tích hợp | Test lifecycle/cổng/recovery | Browser test, khóa scope | Backend/API/lifecycle/UI đạt |
+| D11 | Kiến trúc/báo cáo | Dữ liệu/vận hành | Hướng dẫn/checklist | Tài liệu đúng thực tế |
+| D12 | Ghép báo cáo | Kiểm tra nguồn/gói | Chrome/Edge trên máy demo | M3 — bàn giao thử |
+| D13 | Điều phối diễn tập | Demo khóa/recovery | Thao tác web, lưu bằng chứng | Sửa lỗi, giải thích module |
+| D14 | Duyệt bản nộp | Chốt dữ liệu/log | Test cuối/đóng gói | M4 — nghiệm thu |
 
-## WBS và ước lượng effort
+Sau D10 chỉ sửa lỗi, tài liệu và hoàn thiện demo đã chốt. Nếu trễ, giảm trang trí/animation trước; giữ đủ lifecycle trên web, logging, recovery và idempotency. Báo leader khi chậm hơn một ngày hoặc blocker quá bốn giờ làm việc.
 
-| Mã | Hạng mục | Chủ trì | Effort giờ | Hạn | Điều kiện Done |
-|---|---|---|---|---|---|
-| W01 | Phạm vi và giao thức | SV1 | 6 | D2 | API, trạng thái được SV2/SV3 duyệt |
-| W02 | Coordinator và idempotency | SV1 | 12 | D5 | begin/end/abort, token conflict đúng |
-| W03 | Recovery và ACK | SV1 | 10 | D9 | Crash trước/sau quyết định đúng |
-| W04 | Quản lý, tích hợp, báo cáo | SV1 | 14 | D14 | Mốc duyệt, báo cáo và release đầy đủ |
-| W05 | Schema và khóa | SV2 | 10 | D3 | Không oversell; khóa tồn tại sau restart |
-| W06 | Prepare commit abort | SV2 | 14 | D6 | Replay không trừ tồn trùng |
-| W07 | Recovery và late message | SV2 | 10 | D9 | PREPARED chờ; tombstone chặn prepare muộn |
-| W08 | Tài liệu, review, demo | SV2 | 8 | D14 | Giải thích được dữ liệu, log và rollback |
-| W09 | RPC client và retry | SV3 | 10 | D4 | Token ổn định, báo outcome unknown |
-| W10 | Chaos injector | SV3 | 10 | D6 | Crash thật và timeout có thể tái lập |
-| W11 | Kiểm thử tích hợp | SV3 | 14 | D10 | 14 test đạt, lưu log thực tế |
-| W12 | Đóng gói và diễn tập | SV3 | 8 | D14 | Máy sạch chạy theo README |
+## Kiến trúc và demo mục tiêu
 
-Tổng 126 giờ công, mỗi người 42 giờ/14 ngày, trung bình 3 giờ/ngày. Đây là ước lượng, không phải số giờ đã thực hiện. D13–D14 có thời gian sửa lỗi và chốt hồ sơ; không nhận tính năng mới sau D10.
+Lệnh **dự kiến sau triển khai**: `python run_dashboard.py`; mở `http://127.0.0.1:8080`. Dashboard/process manager chạy ngoài Coordinator; một node crash không dừng web hoặc các node còn lại. Ba dịch vụ cổng 8000–8002 giữ ba SQLite DB riêng. HTML/CSS/JavaScript thuần và Python chuẩn. CLI/`run_demo.py` hiện có tiếp tục dùng theo README trong lúc dashboard chưa hoàn thành.
 
-## Quản lý tiến độ
+Polling mỗi giây, có timeout và dữ liệu cũ riêng từng node. Lỗi RPC không biến thành tồn 0 hoặc ABORTED. Token/payload lưu trước gửi; retry dùng lại đúng yêu cầu. Phân biệt COMMIT chờ ACK với hoàn tất; PREPARED giữ khóa. Log theo từng node, không có thứ tự thời gian toàn cục.
 
-Bảng công việc dùng Backlog → Ready → Doing → Review → Done; lỗi chặn dùng nhãn Blocked. Mỗi thẻ có mã WBS, người làm, người review, ngày hạn, effort còn lại, điều kiện nghiệm thu và link commit/test. Mỗi người tối đa 1 thẻ Doing. Cập nhật mỗi ngày trước 20:00 giờ Việt Nam; họp 15 phút lúc 20:00 để nêu việc xong, việc tiếp theo và blocker. Đây là lịch sinh hoạt đề xuất, chưa tạo sự kiện hoặc automation.
+Demo 12–15 phút: giới thiệu → đặt thành công → retry cùng token → phòng không tồn tại → Coordinator crash trước quyết định, restart để abort → crash sau quyết định, restart để replay commit → tải đồng thời và đối chiếu tồn. Hotel crash/timeout là phần bổ sung. Chuẩn bị DB sạch trước demo; không reset giữa crash và recovery. Xem tiêu chí quan sát trong đặc tả.
 
-Leader kiểm tra tiến độ bằng task được nghiệm thu, không dựa vào số dòng code. Công thức: tổng effort kế hoạch của task Done / 126 × 100%. Chỉ ghi Done khi code đã review và có test/bằng chứng; không điền % giả định. Baseline kỹ thuật đã có 14 test đạt, nhưng mức hoàn thành và số giờ của từng thành viên chưa được xác nhận.
+## Quản lý tiến độ và GitHub
 
-Nếu task chậm hơn 1 ngày hoặc blocker quá 4 giờ làm việc, báo leader ngay. Leader ưu tiên sửa correctness trước giao diện/tính năng bổ sung; điều chuyển việc test/tài liệu mà vẫn giữ chủ sở hữu module. Sau D10 chỉ sửa lỗi và tài liệu. Không cắt log, idempotency, recovery hoặc kiểm thử crash để kịp hạn.
+Bảng công việc: Backlog → Ready → Doing → Review → Done; Blocked là nhãn. Mỗi thẻ có mã WBS, người làm/review, hạn, effort còn lại, điều kiện nghiệm thu và bằng chứng; mỗi người tối đa một thẻ Doing. Đề xuất cập nhật trước 20:00 và họp 15 phút lúc 20:00 giờ Việt Nam; chưa tạo automation.
 
-Nhánh gợi ý: feature/coordinator, feature/resource-managers, feature/client-chaos; main luôn chạy được. Mỗi PR có mục tiêu, cách kiểm thử, log và 1 người duyệt. SV2 review SV1, SV3 review SV2, SV1 review SV3. Thay đổi API/schema phải báo cả nhóm và cập nhật README trước khi merge.
+Tiến độ = tổng effort kế hoạch của task Done / 126 × 100%. Chỉ Done khi review và kiểm thử phù hợp đã đạt. Không suy ra tiến độ nhóm từ số test backend; chưa xác nhận giờ công và ngày bắt đầu thật.
+
+Quy trình GitHub đã chốt: nhánh công việc từ `develop`, PR vào `develop`, squash khi merge; phát hành `develop → main` và đồng bộ `main → develop` dùng merge commit. Hotfix từ `main` rồi đồng bộ về `develop`. `develop` mặc định, `main` ổn định. PR cần một người khác duyệt, xử lý hết thảo luận, cập nhật với nhánh đích và đủ CI; áp dụng cả admin. Tài liệu quy trình chi tiết đang ở PR workflow riêng; nhánh tài liệu này cần cập nhật từ `develop` sau khi PR đó merge.
 
 ## Checklist nghiệm thu
 
-- [ ] Nhóm điền tên, MSSV, lớp, giảng viên và ngày bắt đầu thật.
-- [ ] Cả ba sinh viên giải thích được 2PC, blocking và ranh giới commit.
-- [ ] Chạy 14 test trên máy thuyết trình, đính kèm log riêng.
-- [ ] Demo đủ success, abort, retry, concurrent, timeout, crash/recovery.
-- [ ] Đối chiếu tồn kho và khóa của cả hai DB sau recovery.
-- [ ] Word thống nhất với code; không ghi kết quả thử nghiệm chưa chạy.
-- [ ] ZIP không có dữ liệu cá nhân, DB thử hoặc thư viện môi trường.
-- [ ] Leader duyệt bản nộp cuối và thành viên xác nhận phần mình.
+- [ ] Điền MSSV/lớp/giảng viên, xác nhận ngày khởi động và effort thực tế.
+- [ ] Cả ba giải thích được 2PC, blocking và quyết định bền vững.
+- [ ] Giữ 14 test backend đạt; bổ sung kiểm thử API/lifecycle/browser theo đặc tả.
+- [ ] Chạy/dừng/restart đúng child, giữ DB; xử lý cổng bận không tác động tiến trình ngoài.
+- [ ] Dashboard hoạt động khi Coordinator/participant crash.
+- [ ] Double-click, retry và reload không tạo booking trùng.
+- [ ] Hiển thị đúng stale/unknown, PREPARED, COMMIT chờ ACK và hoàn tất.
+- [ ] Demo success, abort, retry, concurrent, crash/recovery; đối chiếu tồn/khóa sau phục hồi.
+- [ ] Chrome/Edge trên máy thuyết trình đã chạy; lưu log/ảnh thật, không ghi dự đoán thành kết quả.
+- [ ] Markdown, Word và bản Drive nhất quán về phạm vi, người làm, lịch, trạng thái.
+- [ ] Gói sạch, không có DB thử/secret; leader và từng thành viên xác nhận phần sở hữu.
