@@ -118,4 +118,4 @@ Giữ 14 test backend. Bổ sung test API với lỗi node từng phần, timeou
 - [ ] Chrome/Edge trên máy demo, bàn phím/nhãn chữ/focus/presentation hoạt động.
 - [ ] Chạy đủ demo, lưu commit/Python/browser, log và ảnh thực tế.
 
-Chỉ ghi hoàn thành sau review, kiểm thử phù hợp đạt, tài liệu khớp hành vi và cả ba giải thích được phần sở hữu. Không ghi dự đoán thành kết quả thực nghiệm.
+Chỉ ghi hoàn thành sau khi tác giả tự kiểm tra, xử lý góp ý nếu có, kiểm thử phù hợp đạt, tài liệu khớp hành vi và cả ba giải thích được phần sở hữu. Review chéo được khuyến khích; không bắt buộc người khác Approve để merge PR. Không ghi dự đoán thành kết quả thực nghiệm.

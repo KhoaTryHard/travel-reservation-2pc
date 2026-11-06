@@ -24,7 +24,7 @@ Giữ 14 ngày, tổng **126 giờ công dự kiến, mỗi người 42 giờ**,
 | W10 | Kiểm thử browser/demo | SV3 | 12 | D10 | Double-click/reload, stale/unknown, fault/load, demo chính |
 | W11 | Hướng dẫn và đóng gói | SV3 | 10 | D14 | Máy demo Chrome/Edge, bằng chứng thật, gói chạy sạch |
 
-SV1 sở hữu Coordinator/API web; SV2 sở hữu RM/process manager; SV3 sở hữu frontend/demo. Vòng review: SV2 review SV1, SV3 review SV2, SV1 review SV3. Bổ sung kiểm thử API/lifecycle/browser bên cạnh 14 kiểm thử backend. Không đổi ý nghĩa RPC hoặc 2PC để phục vụ animation.
+SV1 sở hữu Coordinator/API web; SV2 sở hữu RM/process manager; SV3 sở hữu frontend/demo. Khuyến khích review chéo: SV2 review SV1, SV3 review SV2, SV1 review SV3; không bắt buộc người khác Approve để merge. Bổ sung kiểm thử API/lifecycle/browser bên cạnh 14 kiểm thử backend. Không đổi ý nghĩa RPC hoặc 2PC để phục vụ animation.
 
 ## Lịch thực hiện
 
@@ -59,9 +59,9 @@ Demo 12–15 phút: giới thiệu → đặt thành công → retry cùng token
 
 Bảng công việc: Backlog → Ready → Doing → Review → Done; Blocked là nhãn. Mỗi thẻ có mã WBS, người làm/review, hạn, effort còn lại, điều kiện nghiệm thu và bằng chứng; mỗi người tối đa một thẻ Doing. Đề xuất cập nhật trước 20:00 và họp 15 phút lúc 20:00 giờ Việt Nam; chưa tạo automation.
 
-Tiến độ = tổng effort kế hoạch của task Done / 126 × 100%. Chỉ Done khi review và kiểm thử phù hợp đã đạt. Không suy ra tiến độ nhóm từ số test backend; chưa xác nhận giờ công và ngày bắt đầu thật.
+Tiến độ = tổng effort kế hoạch của task Done / 126 × 100%. Chỉ Done khi tác giả đã tự kiểm tra, xử lý góp ý nếu có và kiểm thử phù hợp đã đạt; review chéo được khuyến khích. Không suy ra tiến độ nhóm từ số test backend; chưa xác nhận giờ công và ngày bắt đầu thật.
 
-Quy trình GitHub đã chốt: nhánh công việc từ `develop`, PR vào `develop`, squash khi merge; phát hành `develop → main` và đồng bộ `main → develop` dùng merge commit. Hotfix từ `main` rồi đồng bộ về `develop`. `develop` mặc định, `main` ổn định. PR cần một người khác duyệt, xử lý hết thảo luận, cập nhật với nhánh đích và đủ CI; áp dụng cả admin. Tài liệu quy trình chi tiết đang ở PR workflow riêng; nhánh tài liệu này cần cập nhật từ `develop` sau khi PR đó merge.
+Quy trình GitHub đã chốt: nhánh công việc từ `develop`, PR vào `develop`, squash khi merge; phát hành `develop → main` và đồng bộ `main → develop` dùng merge commit. Hotfix từ `main` rồi đồng bộ về `develop`. `develop` mặc định, `main` ổn định. PR không bắt buộc người khác Approve; tác giả có quyền ghi được tự merge khi xử lý hết thảo luận, cập nhật với nhánh đích và đủ CI; áp dụng cả admin. Tài liệu quy trình chi tiết đang ở PR workflow riêng; nhánh tài liệu này cần cập nhật từ `develop` sau khi PR đó merge.
 
 ## Checklist nghiệm thu
 
