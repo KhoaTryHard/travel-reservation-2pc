@@ -48,7 +48,7 @@ Leader kiểm tra tiến độ bằng task được nghiệm thu, không dựa v
 
 Nếu task chậm hơn 1 ngày hoặc blocker quá 4 giờ làm việc, báo leader ngay. Leader ưu tiên sửa correctness trước giao diện/tính năng bổ sung; điều chuyển việc test/tài liệu mà vẫn giữ chủ sở hữu module. Sau D10 chỉ sửa lỗi và tài liệu. Không cắt log, idempotency, recovery hoặc kiểm thử crash để kịp hạn.
 
-Nhánh gợi ý: feature/coordinator, feature/resource-managers, feature/client-chaos; main luôn chạy được. Mỗi PR có mục tiêu, cách kiểm thử, log và 1 người duyệt. SV2 review SV1, SV3 review SV2, SV1 review SV3. Thay đổi API/schema phải báo cả nhóm và cập nhật README trước khi merge.
+Tuân theo [quy trình làm việc trên GitHub](GITHUB_WORKFLOW.md): tạo nhánh từ `develop`, dùng tên như `feat/12-coordinator-recovery`, `feat/13-resource-managers`, `test/14-client-chaos`; công việc nhỏ có thể bỏ số issue. PR công việc vào `develop` và squash khi merge; phát hành qua PR `develop → main`, đồng bộ ngược qua PR `main → develop`, cả hai dùng merge commit. Hotfix tạo từ `main`, PR vào `main` rồi đồng bộ về `develop`. `develop` là nhánh mặc định; `main` luôn sẵn sàng demo hoặc bàn giao. Mỗi PR có mục tiêu, cách kiểm thử, log, ít nhất 1 người khác phê duyệt còn hiệu lực, mọi thảo luận đã xử lý, nhánh cập nhật với nhánh đích và cả 4 job CI đạt; áp dụng cho cả admin. SV2 review SV1, SV3 review SV2, SV1 review SV3. Thay đổi API/schema phải báo cả nhóm và cập nhật README trước khi merge.
 
 ## Checklist nghiệm thu
 

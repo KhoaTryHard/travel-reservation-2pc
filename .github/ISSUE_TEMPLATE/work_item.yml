@@ -1,0 +1,37 @@
+name: Đề xuất công việc
+description: Đề xuất tính năng, kiểm thử, tài liệu hoặc công việc bảo trì.
+title: "chore: "
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Bối cảnh và mục tiêu
+      description: Vấn đề cần giải quyết hoặc kết quả nhóm cần đạt.
+    validations:
+      required: true
+  - type: textarea
+    id: work
+    attributes:
+      label: Nội dung công việc
+      description: Mô tả thay đổi dự kiến và phạm vi; liên kết WBS hoặc issue liên quan nếu có.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Tiêu chí hoàn thành
+      description: Các điều kiện có thể kiểm chứng để reviewer nghiệm thu.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Cách kiểm tra dự kiến
+      description: Kiểm thử, lệnh chạy hoặc kịch bản demo cần thực hiện.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Phụ thuộc và ảnh hưởng
+      description: Nêu ảnh hưởng tới RPC, SQLite schema, thành viên khác hoặc tài liệu nếu có.
