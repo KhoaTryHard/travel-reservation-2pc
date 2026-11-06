@@ -61,7 +61,7 @@ Bảng công việc: Backlog → Ready → Doing → Review → Done; Blocked l�
 
 Tiến độ = tổng effort kế hoạch của task Done / 126 × 100%. Chỉ Done khi tác giả đã tự kiểm tra, xử lý góp ý nếu có và kiểm thử phù hợp đã đạt; review chéo được khuyến khích. Không suy ra tiến độ nhóm từ số test backend; chưa xác nhận giờ công và ngày bắt đầu thật.
 
-Quy trình GitHub đã chốt: nhánh công việc từ `develop`, PR vào `develop`, squash khi merge; phát hành `develop → main` và đồng bộ `main → develop` dùng merge commit. Hotfix từ `main` rồi đồng bộ về `develop`. `develop` mặc định, `main` ổn định. PR không bắt buộc người khác Approve; tác giả có quyền ghi được tự merge khi xử lý hết thảo luận, cập nhật với nhánh đích và đủ CI; áp dụng cả admin. Tài liệu quy trình chi tiết đang ở PR workflow riêng; nhánh tài liệu này cần cập nhật từ `develop` sau khi PR đó merge.
+Tuân theo [quy trình làm việc trên GitHub](GITHUB_WORKFLOW.md): nhánh công việc từ `develop`, tên dạng `<type>/<issue>-<mo-ta>`; công việc nhỏ có thể bỏ số issue, nhánh Codex dùng `codex/`. PR công việc vào `develop` dùng squash; phát hành `develop → main` và đồng bộ `main → develop` dùng merge commit. Hotfix từ `main` rồi đồng bộ về `develop`. `develop` mặc định, `main` ổn định. Mỗi PR ghi mục tiêu, cách kiểm thử và bằng chứng; không bắt buộc người khác Approve. Tác giả có quyền ghi được tự merge khi xử lý hết thảo luận, cập nhật với nhánh đích và cả bốn job CI đạt; áp dụng cả admin. Review chéo được khuyến khích. Thay đổi API/schema cần báo cả nhóm và cập nhật tài liệu trước khi merge.
 
 ## Checklist nghiệm thu
 
