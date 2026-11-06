@@ -1,0 +1,43 @@
+name: Báo lỗi
+description: Báo lỗi đặt chỗ, giao thức 2PC, crash/recovery hoặc công cụ demo.
+title: "fix: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Mô tả lỗi
+      description: Lỗi ảnh hưởng thế nào đến giao dịch hoặc quá trình demo?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Các bước tái hiện
+      description: Kèm lệnh khởi động dịch vụ, lệnh client và điểm crash/timeout nếu có.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Kết quả mong đợi
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Kết quả thực tế và bằng chứng
+      description: Kèm trạng thái giao dịch, log hoặc snapshot đã loại bỏ thông tin nhạy cảm.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Môi trường
+      description: Hệ điều hành, phiên bản Python, nhánh/commit; DB mới hay đã phục hồi.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Tiêu chí hoàn thành
+      description: Nêu kiểm thử hoặc kịch bản chứng minh lỗi đã được sửa, nếu đã xác định.
