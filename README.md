@@ -2,7 +2,7 @@
 
 Bản triển khai học phần Hệ thống phân tán cho nhóm 3 sinh viên năm 4. Mỗi giao dịch đặt đúng 1 chỗ máy bay và 1 phòng. Hai Resource Manager là hai tiến trình với hai SQLite DB riêng. Coordinator có DB nhật ký riêng. Python 3.10 trở lên, chỉ dùng thư viện chuẩn, không cần pip hoặc Docker.
 
-Thành viên đọc [quy trình làm việc trên GitHub](docs/GITHUB_WORKFLOW.md) trước khi nhận việc: tạo nhánh từ `develop`, mở PR vào `develop`, phát hành qua PR `develop → main`. Mọi PR cần một người khác phê duyệt và CI đạt; quy tắc áp dụng cho cả admin.
+Thành viên đọc [quy trình làm việc trên GitHub](docs/GITHUB_WORKFLOW.md) trước khi nhận việc: tạo nhánh từ `develop`, mở PR vào `develop`, phát hành qua PR `develop → main`. PR không bắt buộc người khác Approve; tác giả có quyền ghi được tự merge khi CI đạt, nhánh cập nhật với nhánh đích và mọi thảo luận đã được xử lý. Quy tắc áp dụng cho cả admin.
 
 ## Chạy nhanh trên Windows
 

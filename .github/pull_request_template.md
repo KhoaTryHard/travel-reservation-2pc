@@ -27,4 +27,4 @@ python -m unittest discover -s tests -v
 - [ ] Kết quả kiểm thử/demo được ghi đúng thực tế.
 - [ ] Tài liệu và hướng dẫn RPC/schema/cấu hình liên quan đã cập nhật.
 - [ ] Không chứa secret, DB thử nghiệm hoặc thay đổi ngoài phạm vi.
-- [ ] Có một thành viên khác phê duyệt và mọi thảo luận đã được xử lý trước merge.
+- [ ] Tác giả đã tự kiểm tra, xử lý góp ý nếu có và giải quyết hết thảo luận; không bắt buộc người khác Approve.

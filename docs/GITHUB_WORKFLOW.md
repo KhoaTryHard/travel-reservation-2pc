@@ -4,12 +4,12 @@ Tài liệu này áp dụng cho tất cả thành viên cộng tác trong dự �
 
 ## 1. Các nhánh chính
 
-- `main`: phiên bản ổn định, sẵn sàng demo hoặc bàn giao. Chỉ cập nhật qua pull request đã được duyệt.
+- `main`: phiên bản ổn định, sẵn sàng demo hoặc bàn giao. Chỉ cập nhật qua pull request đáp ứng các điều kiện merge.
 - `develop`: nhánh tích hợp công việc đã hoàn thành, điểm bắt đầu cho tính năng mới và nhánh mặc định trên GitHub.
 
 Luồng thông thường: `nhánh công việc → develop → main`.
 
-Không commit trực tiếp, force-push hoặc xóa `main`, `develop`. Bảo vệ nhánh áp dụng cho cả admin: cần pull request, ít nhất một người khác phê duyệt, giải quyết hết thảo luận, CI đạt và nhánh công việc cập nhật với nhánh đích. Phê duyệt cũ bị hủy khi có commit mới.
+Không commit trực tiếp, force-push hoặc xóa `main`, `develop`. Bảo vệ nhánh áp dụng cho cả admin: cần pull request, giải quyết hết thảo luận, CI đạt và nhánh công việc cập nhật với nhánh đích. Không bắt buộc người khác Approve; tác giả có quyền ghi được tự merge PR khi đủ các điều kiện này. Review chéo là hoạt động khuyến khích.
 
 ## 2. Đặt tên nhánh
 
@@ -63,7 +63,7 @@ Tên nhánh và Conventional Commits được kiểm tra qua checklist và revie
 3. Tiêu đề PR theo Conventional Commits, ví dụ `feat(coordinator): add recovery replay` hoặc `docs: add GitHub workflow`.
 4. Dùng mẫu PR để mô tả mục đích, liên kết issue, lệnh kiểm thử và kết quả. Nêu rõ thay đổi RPC contract, SQLite schema, cấu hình hoặc bước nâng cấp dữ liệu nếu có.
 5. Giữ PR nhỏ, chỉ giải quyết một mục tiêu. Không đưa secret, dữ liệu cá nhân, SQLite DB thử nghiệm hoặc file sinh tự động không cần thiết vào PR.
-6. Chờ ít nhất một thành viên khác phê duyệt. Tác giả xử lý góp ý; reviewer kiểm tra tính đúng đắn, ảnh hưởng tới bất biến 2PC và khả năng bảo trì. Commit mới yêu cầu review lại.
+6. Tác giả tự kiểm tra thay đổi và xử lý góp ý nếu có. Khuyến khích review chéo để kiểm tra tính đúng đắn, bất biến 2PC và khả năng bảo trì; không yêu cầu Approve hoặc review lại làm điều kiện merge. Tác giả có quyền ghi được tự merge sau khi đủ CI và các điều kiện còn lại.
 7. Giải quyết hết thảo luận và chờ đủ bốn job CI đạt: Ubuntu/Windows với Python 3.10/3.13. Nhánh phải cập nhật với nhánh đích; không bỏ qua yêu cầu, kể cả admin.
 8. Dùng **Squash and merge** cho PR từ nhánh công việc, đặt tiêu đề squash theo Conventional Commits. Dùng **Create a merge commit** cho PR `develop → main` và `main → develop` để giữ quan hệ lịch sử hai nhánh dài hạn. Nhánh công việc được tự động xóa sau merge; hai nhánh chính được bảo vệ khỏi xóa.
 
@@ -86,8 +86,8 @@ CI chạy khi push hoặc mở/cập nhật PR vào `main`, `develop`; khi PR đ
 ## 6. Phát hành và bàn giao
 
 - Leader hoặc người được ủy quyền mở PR `develop → main` khi nhóm đã chốt phạm vi demo hoặc bàn giao.
-- Kiểm tra trực tiếp bản ứng viên trên `develop`: toàn bộ CI đạt, các PR trong phạm vi đã được duyệt, demo phù hợp đã chạy và ghi chú phát hành đã chuẩn bị. Kiểm thử ngay trên `develop` thay cho một nhánh môi trường trung gian.
-- PR phát hành vẫn cần một người khác phê duyệt và đủ các điều kiện bảo vệ `main`; chọn **Create a merge commit** khi merge.
+- Kiểm tra trực tiếp bản ứng viên trên `develop`: toàn bộ CI đạt, các PR trong phạm vi đáp ứng điều kiện merge, demo phù hợp đã chạy và ghi chú phát hành đã chuẩn bị. Kiểm thử ngay trên `develop` thay cho một nhánh môi trường trung gian.
+- PR phát hành không yêu cầu người khác Approve; vẫn phải đủ các điều kiện bảo vệ `main`. Chọn **Create a merge commit** khi merge.
 - Sau phát hành, nếu `main` có thay đổi chưa có trên `develop`, mở PR `main → develop`, cũng dùng merge commit. Bắt buộc đồng bộ sau hotfix để không mất bản sửa trong lần phát hành sau.
 - Ghi nhận lỗi khi kiểm thử bằng issue và liên kết PR sửa lỗi. Ghi rõ commit đã kiểm thử và bằng chứng thực tế; không ghi kết quả chưa chạy.
 
@@ -104,7 +104,7 @@ CI chạy khi push hoặc mở/cập nhật PR vào `main`, `develop`; khi PR đ
 - [ ] PR đúng nhánh đích và liên kết issue liên quan nếu có.
 - [ ] Tên nhánh, tiêu đề PR và commit tuân theo quy ước.
 - [ ] Đã chọn đúng phương thức merge cho nhánh công việc hoặc hai nhánh chính.
-- [ ] Có ít nhất một thành viên khác phê duyệt; phê duyệt còn hiệu lực và mọi thảo luận đã được xử lý.
+- [ ] Tác giả đã tự kiểm tra thay đổi, xử lý góp ý nếu có và giải quyết hết thảo luận; không bắt buộc người khác Approve.
 - [ ] Nhánh đã cập nhật với nhánh đích và cả bốn job CI đều đạt.
 - [ ] Kiểm thử/demo phù hợp với thay đổi đã chạy và ghi kết quả thực tế.
 - [ ] Tài liệu, RPC contract, cấu hình hoặc hướng dẫn nâng cấp dữ liệu liên quan đã được cập nhật.
