@@ -89,7 +89,8 @@ python run_dashboard_api.py
 ```
 
 API lắng nghe `http://127.0.0.1:8080`, có GET `/api/session`, `/api/overview`,
-`/api/transactions/{tx}` và POST `/api/bookings`. Mọi POST gửi JSON và header
+`/api/transactions/{tx}`, `/api/load/{run_id}` và POST `/api/bookings`,
+`/api/faults`, `/api/load`, `/api/services/{name}/{action}`. Mọi POST gửi JSON và header
 `X-Session-Token` lấy từ `/api/session`. Booking nhận đủ token/airline/hotel;
 retry giữ nguyên cả ba trường. Xem [contract bàn giao](docs/DASHBOARD_SPEC.md#8-contract-bàn-giao-w01--09112026).
 
@@ -97,6 +98,9 @@ retry giữ nguyên cả ba trường. Xem [contract bàn giao](docs/DASHBOARD_S
 Nó không tạo hoặc điều khiển các server đang chạy bên ngoài. Kiểm thử API chạy bằng
 `python -m unittest discover -s tests -p test_dashboard_api.py -v`; kiểm thử dùng
 RPC child thật và DB tạm không thay cho nghiệm thu browser/lifecycle của nhóm.
+Load chạy nền (10 yêu cầu/4 worker mặc định), chỉ một đợt; lưu tối đa 20 đợt trong bộ nhớ.
+`LifecycleManager` là interface bàn giao cho Hữu: khi chưa truyền manager vào API,
+overview ghi unmanaged và thao tác services trả 503; không nhận quyền sở hữu tiến trình ngoài.
 
 Mọi RPC: POST /action với JSON object; HTTP 200 chứa kết quả hoặc `{"error":"..."}`. Client phải kiểm tra error; đây là quy ước RPC tối giản, không phải thiết kế REST production.
 

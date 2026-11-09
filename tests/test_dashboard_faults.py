@@ -64,6 +64,12 @@ class FaultTests(unittest.TestCase):
         node = api.overview()['nodes']['coordinator']
         self.assertTrue(node['stale'])
         self.assertEqual(node['snapshot']['transactions'][0]['tx'], 't1')
+        def malformed_rows(url, action, data, timeout):
+            if url == URLS['hotel'] and action == 'snapshot':
+                return {'inventory': [None], 'reservations': [], 'locks': [], 'events': []}
+            return rpc(url, action, data, timeout)
+        api.transport = malformed_rows
+        self.assertTrue(api.overview()['nodes']['hotel']['stale'])
 
 
 class RealRecoveryTests(unittest.TestCase):
