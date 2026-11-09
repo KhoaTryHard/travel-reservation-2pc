@@ -39,6 +39,126 @@ Lỗi mạng trong một request vẫn có thể chưa xác định, không tín
 
 Interface, JSON và lỗi chi tiết nằm trong [đặc tả, mục 8](DASHBOARD_SPEC.md).
 
+## Nội dung báo cáo kỹ thuật của Khoa
+
+Phần này dành cho ghép báo cáo W04a: giải thích source đã triển khai, các bất biến và
+giới hạn có bằng chứng. Source đối chiếu là `0911815a8180ca7fa7ff0fd917eea8c9a21aa527`;
+phần mở rộng HTTP ở nhánh độc lập được ghi riêng bên dưới. Báo cáo đầy đủ vẫn cần W08
+của Hữu, W11a của Khánh và thông tin học phần được nhóm xác nhận.
+
+### Đơn vị giao dịch và luồng xử lý
+
+Một yêu cầu đặt combo lấy đúng một DEFAULT ở Airline và một tài nguyên Hotel do người
+dùng chọn. Booking token định danh yêu cầu nghiệp vụ; tx là UUID do Coordinator tạo.
+HTTP session token bảo vệ POST trong vòng đời dashboard, có thể đổi khi web restart,
+trong khi booking token/payload phải giữ nguyên để retry.
+
+1. `DashboardAPI.book()` kiểm tra đủ token/airline/hotel, gọi `begin` rồi `end` trong
+   cùng ngân sách tối đa 30 giây. API gọi RPC, không mở SQLite nghiệp vụ trực tiếp.
+2. `Coordinator.handle('begin')` ghi payload đã chuẩn hóa và trạng thái ACTIVE. Ràng
+   buộc UNIQUE của token ngăn tạo tx thứ hai. Cùng token/cùng payload trả tx cũ;
+   khác payload bị từ chối và API ánh xạ thành 409 `token_conflict`.
+3. `end` chuyển PREPARING rồi gửi prepare tới Airline/Hotel. Participant chỉ vote YES
+   sau khi ghi PREPARED, reservation và khóa độc quyền trong cùng local transaction.
+   Hết chỗ, thiếu resource, khóa xung đột hoặc lỗi RPC dẫn đến không đủ hai phiếu YES.
+4. Coordinator ghi COMMITTED khi cả hai vote YES, còn lại ghi ABORTED. Ghi quyết định
+   và event hoàn tất trong SQLite trước khi phát thông điệp commit/abort của pha 2.
+5. Coordinator gửi quyết định tới từng RM chưa ACK; chỉ ghi ACK sau phản hồi có state
+   đúng quyết định. Mất phản hồi được thử lại bởi `recover()` mỗi 0,5 giây. ACK là lần
+   ghi bền riêng sau RPC, không gộp thành một transaction toàn cục với các DB RM.
+
+Nguồn: [coordinator.py](../coordinator.py), [participant.py](../participant.py),
+[dashboard_api.py](../dashboard_api.py). Mutex của Coordinator tuần tự hóa end/abort/recovery;
+API load có nhiều worker nhưng không hứa throughput tăng tuyến tính với số worker.
+
+### Dữ liệu bền vững và ranh giới atomic
+
+| DB / bảng | Ý nghĩa và ràng buộc chính | Khi được cập nhật |
+|---|---|---|
+| Coordinator / transactions | tx khóa chính, token UNIQUE; payload và ack là JSON; state ACTIVE/PREPARING/COMMITTED/ABORTED | begin; chuyển trạng thái/quyết định; ghi từng ACK |
+| Participant / inventory | resource khóa chính, available có CHECK ≥ 0 | Tạo DB mới có 5 DEFAULT; chỉ COMMIT hợp lệ mới trừ một đơn vị |
+| Participant / reservations | tx khóa chính; resource và PREPARED/COMMITTED/ABORTED | prepare hoặc quyết định pha 2; abort chưa thấy prepare tạo tombstone với resource NULL |
+| Participant / locks | resource khóa chính, tx UNIQUE | Cùng transaction với PREPARED; xóa cùng transaction quyết định cuối |
+| Mỗi DB / events | seq cục bộ tăng dần; tx/state/at | Cùng local transaction khi ghi thay đổi trạng thái; không phải thứ tự toàn cục |
+
+[common.db()](../common.py) dùng `BEGIN IMMEDIATE`, SQLite WAL và synchronous=FULL,
+commit khi khối thành công, rollback khi lỗi. Khi RM COMMIT, việc trừ tồn, đổi reservation,
+xóa khóa và ghi event là một local transaction. Retry commit thấy trạng thái COMMITTED
+và trả lại kết quả mà không trừ lần nữa; quyết định cuối đối nghịch bị từ chối.
+Nhờ đó mất ACK không tạo thêm effect khi Coordinator phát lại.
+
+PREPARED giữ chỗ bằng reservation/lock, chưa trừ available. UI phải phân biệt tồn đã
+commit với số đang giữ; resource bị khóa có thể từ chối booking mới dù available còn.
+Không có hàng đợi công bằng hoặc deadlock đa tài nguyên. DB của ba tiến trình tách biệt;
+không có SQL transaction duy nhất bao cả ba DB.
+
+### Phục hồi, blocking và kết quả chưa xác định
+
+| Điểm lỗi | Dữ liệu bền trước lỗi | Sau restart giữ đúng DB |
+|---|---|---|
+| Coordinator sau vote, trước quyết định | PREPARING ở Coordinator, PREPARED/locks ở hai RM | Constructor Coordinator ghi ABORTED cho ACTIVE/PREPARING; recovery phát lại abort, giải phóng khóa |
+| Coordinator sau ghi COMMITTED, trước pha 2 | Quyết định COMMITTED đã bền; RM có thể còn PREPARED | Giữ COMMITTED, phát lại commit đến đủ ACK; không đổi quyết định thành abort |
+| RM chết sau PREPARED | Reservation và lock đã bền; client/Coordinator có thể mất phản hồi | RM khởi động giữ PREPARED và chờ quyết định; không tự timeout rồi giải phóng khóa |
+| RM chết sau COMMIT, trước ACK | Tồn và COMMITTED đã ghi nguyên tử ở RM | Coordinator gửi lại; RM trả COMMITTED cũ, không trừ lại |
+| PREPARE đến muộn sau ABORT | ABORTED tombstone đã ghi ở RM | PREPARE cùng tx trả không đồng ý, không tạo lại khóa |
+
+Participant không biết liệu Coordinator đã ghi quyết định khi mất liên lạc. Tự abort
+PREPARED theo timeout có thể đối nghịch quyết định COMMIT đã bền, nên bản triển khai
+chấp nhận blocking. RPC timeout 2 giây là giới hạn chờ thông điệp, không phải bằng chứng
+giao dịch đã abort. API booking trả `outcome_unknown=true`, giữ token/payload và tx nếu
+đã biết; UI còn phải triển khai lưu trước gửi/reload theo contract.
+
+`state=COMMITTED` nói về quyết định bền, `complete=true` nói rằng đã đủ ACK Airline/Hotel.
+COMMITTED thiếu ACK vẫn là commit đang hoàn tất; ABORTED cũng có thể cần replay để
+hai RM giải phóng hết khóa. Tại thời điểm quan sát có thể một RM COMMITTED, bên kia
+PREPARED. Bảo đảm cần kiểm tra là không có hai quyết định cuối đối nghịch cho một tx,
+không yêu cầu ba snapshot luôn chuyển trạng thái đồng thời.
+
+### API quan sát và vận hành
+
+Overview đọc ba node song song, health và snapshot dùng chung deadline 2 giây/node.
+Envelope giữ `last_success_at`, `stale`, `error`; khi lỗi chỉ dùng cache có nhãn dữ liệu
+cũ, còn chưa từng có snapshot thì null. Chi tiết tx chỉ kết luận 404 khi Coordinator
+đang đọc được và không có tx; Coordinator lỗi trả 502/504, không suy ra “không tồn tại”.
+Events đối chiếu theo seq ở từng node; timestamp và các snapshot không cung cấp một
+lịch sử hay distributed snapshot nhất quán.
+
+Load là tác vụ nền trong một dashboard process: 1–50 booking, 1–8 worker, chỉ một đợt,
+token riêng từng request, lưu tối đa 20 đợt trong RAM. Kết quả mạng unknown phải được
+phân giải trước khi tính số commit/abort; dashboard restart không hứa lưu lịch sử load.
+API chỉ bind loopback và kiểm tra Host/Origin/session; RPC lab không có TLS/xác thực.
+
+`LifecycleManager` hiện là Protocol/adapter. Khi không nối manager, overview ghi
+unmanaged và thao tác service trả 503. `run_dashboard_api.py` phục vụ API độc lập;
+`run_demo.py` dừng cả cụm khi một node chết. Hai entry này không thay thế dashboard
+và supervisor độc lập mà Hữu/Khánh còn phải bàn giao để nghiệm thu web qua crash.
+
+### Bằng chứng và phạm vi kết luận
+
+| Source / môi trường | Kết quả đã quan sát | Giới hạn |
+|---|---|---|
+| Baseline API tại develop `0911815`; Windows/Python 3.11.15 | 34/34 test: 14 backend + 20 API; log/hash ở [khoa_test_results.txt](khoa_test_results.txt), CI bốn môi trường của #30 | Child RPC thật chứng minh nghiệp vụ/recovery; double chỉ chứng minh adapter; chưa chứng minh manager/UI |
+| Nhánh độc lập `test/7-http-boundary`, commit [`fa9bf814089daa7617b20be8ef11bbf841ea2879`](https://github.com/KhoaTryHard/travel-reservation-2pc/commit/fa9bf814089daa7617b20be8ef11bbf841ea2879); Windows-10-10.0.26300-SP0/Python 3.11.15 | 42/42 test local, 157.750s; bổ sung 8 test HTTP với kiểm tra RPC/manager/load không được gọi khi từ chối. Log đầy đủ bổ sung ở cuối file kết quả | Nhánh chưa tự gộp vào develop; CI PR mới, browser/lifecycle thật **chưa chạy** |
+
+Các test mới phát hiện POST có session header lặp vẫn được nhận nếu header đầu đúng.
+Nhánh bổ sung yêu cầu đúng một header; regression kiểm tra cả hai thứ tự token đúng/sai,
+header trùng giống nhau, token từ server khác, Host/Origin lặp/sai, body/framing lỗi và
+request hợp lệ làm đối chứng. Không thay RPC, schema SQLite hoặc thuật toán 2PC.
+
+Lệnh tái hiện là `python -m unittest discover -s tests -v` trên đúng commit được nêu;
+chạy trên baseline có 34 test, nhánh bổ sung có 42 test. Không lấy kết quả nhánh bổ sung
+để khẳng định source baseline đã có sửa lỗi hoặc CI mới đã đạt.
+
+Giả định lỗi crash/recovery, đĩa bền không hỏng/mất và kết nối cuối cùng hồi phục.
+Coordinator duy nhất, không có HA/Raft/peer termination; mất Coordinator/DB vĩnh viễn
+không bảo đảm tiến triển. Chưa kiểm chứng nhiều máy, thanh toán thật hoặc triển khai
+Internet. “Không đặt trùng” được chứng minh trong phạm vi token và DB giữ nguyên,
+không phải một cơ chế thanh toán exactly-once cho hệ thống bên ngoài.
+
+W04a vẫn cần Khoa ghép W08/W11a, xác nhận MSSV/lớp/GV, đồng bộ Word/Drive/source và
+bàn giao thử trên máy demo ngày 18/11. Không sửa bản Word/Drive mô tả kế hoạch thành
+báo cáo hoàn chỉnh khi chưa có các đầu vào và bằng chứng đó.
+
 ## Chạy và nối các phần
 
 1. Chạy ba RPC server riêng theo README, giữ nguyên DB khi crash/recovery.
