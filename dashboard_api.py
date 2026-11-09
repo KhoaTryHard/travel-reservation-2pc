@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import secrets
 import socket
 import threading
@@ -17,6 +18,11 @@ from urllib.request import Request, urlopen
 
 NAMES = ('coordinator', 'airline', 'hotel')
 DEFAULT_URLS = {name: f'http://127.0.0.1:{8000 + i}' for i, name in enumerate(NAMES)}
+FAULT_POINTS = {
+    'coordinator': ('after_votes', 'after_decision', 'after_ack_airline'),
+    'airline': ('before_prepare', 'after_prepare', 'before_commit', 'after_commit'),
+    'hotel': ('before_prepare', 'after_prepare', 'before_commit', 'after_commit'),
+}
 
 
 class ApiError(Exception):
@@ -165,10 +171,27 @@ class DashboardAPI:
             raise ApiError(504 if exc.code == 'timeout' else 502, exc.code, str(exc),
                            token=payload['token'], payload={k: payload[k] for k in ('airline', 'hotel')},
                            tx=tx, outcome_unknown=True) from exc
+
         except (KeyError, ValueError, TypeError) as exc:
             raise ApiError(502, 'protocol_error', str(exc), token=payload['token'],
                            payload={k: payload[k] for k in ('airline', 'hotel')},
                            tx=tx, outcome_unknown=True) from exc
+
+    def fault(self, data: dict) -> dict:
+        name = data.get('service')
+        if not isinstance(name, str) or name not in NAMES:
+            raise ApiError(404, 'not_found', 'Unknown service')
+        point, mode, seconds = data.get('point'), data.get('mode'), data.get('seconds', 3)
+        if point not in FAULT_POINTS[name] or mode not in ('crash', 'delay'):
+            raise ApiError(400, 'invalid_input', 'Invalid fault point or mode for service')
+        if (type(seconds) not in (int, float) or not math.isfinite(seconds)
+                or not 0 <= seconds <= 30):
+            raise ApiError(400, 'invalid_input', 'seconds must be finite, 0..30')
+        try:
+            return self._call(name, 'fault', {'point': point, 'mode': mode, 'seconds': seconds},
+                              time.monotonic() + 2)
+        except UpstreamError as exc:
+            raise ApiError(504 if exc.code == 'timeout' else 502, exc.code, str(exc)) from exc
 
     def dispatch(self, method: str, path: str, data: dict) -> tuple[int, dict]:
         if method == 'GET' and path == '/api/overview':
@@ -177,6 +200,8 @@ class DashboardAPI:
             return 200, self.transaction(unquote(path.removeprefix('/api/transactions/')))
         if method == 'POST' and path == '/api/bookings':
             return 200, self.book(data)
+        if method == 'POST' and path == '/api/faults':
+            return 200, self.fault(data)
         raise ApiError(404, 'not_found', 'Unknown API route')
 
 
