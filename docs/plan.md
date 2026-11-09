@@ -6,7 +6,7 @@ Sản phẩm mục tiêu là ứng dụng web cục bộ đặt combo một ch�
 
 **Cập nhật 09/11:** API độc lập của Khoa được triển khai qua các PR W02; UI và bộ quản lý tiến trình thật chưa tích hợp. Backend ba dịch vụ, CLI và 14 bài kiểm thử tiếp tục là nền tảng. Tại commit `1fc1b274de111f009a3746a894038a8fe72501fa`, [CI](https://github.com/KhoaTryHard/travel-reservation-2pc/actions/runs/42186762833) đã chạy đủ 14 bài và đạt trên Ubuntu/Windows với Python 3.10/3.13. Bằng chứng API mới ghi trong PR và bản bàn giao, không thay cho nghiệm thu dashboard hoặc diễn tập trên máy thuyết trình.
 
-Giữ 14 ngày, tổng **126 giờ công dự kiến, mỗi người 42 giờ**, với điều kiện tận dụng backend hiện có. Nhóm đã xác nhận D1 = **07/11/2026**, D14 = **20/11/2026**. Giữ hạn gốc W01 08/11; dự báo bàn giao đầy đủ mới 10/11 và overview thật 10/11. Theo dõi [issue điều phối #3](https://github.com/KhoaTryHard/travel-reservation-2pc/issues/3); không coi effort kế hoạch là giờ đã tiêu. Đăng nhập khách hàng, thanh toán, lịch bay/ngày nhận phòng và triển khai Internet ngoài phạm vi bản này.
+Giữ 14 ngày, tổng **126 giờ công dự kiến, mỗi người 42 giờ**, với điều kiện tận dụng backend hiện có. Nhóm đã xác nhận D1 = **07/11/2026**, D14 = **20/11/2026**. Giữ hạn gốc W01 08/11; dự báo bàn giao đầy đủ mới 10/11. Overview thật ban đầu được dự báo bù 10/11, nay đã kiểm chứng qua API ngày 09/11. Theo dõi [issue điều phối #3](https://github.com/KhoaTryHard/travel-reservation-2pc/issues/3) và [bản bàn giao Khoa](KHOA_HANDOFF.md); không coi effort kế hoạch là giờ đã tiêu. Đăng nhập khách hàng, thanh toán, lịch bay/ngày nhận phòng và triển khai Internet ngoài phạm vi bản này.
 
 ## Phân công và WBS
 
@@ -57,7 +57,7 @@ Demo 12–15 phút: giới thiệu → đặt thành công → retry cùng token
 
 ## Quản lý tiến độ và GitHub
 
-Bảng công việc: Backlog → Ready → Doing → Review → Done; Blocked là nhãn. Mỗi thẻ có mã WBS, người làm/review, hạn, effort còn lại, điều kiện nghiệm thu và bằng chứng; mỗi người tối đa một thẻ Doing. Đề xuất cập nhật trước 20:00 và họp 15 phút lúc 20:00 giờ Việt Nam; chưa tạo automation.
+Bảng công việc: Backlog → Ready → Doing → Review → Done; Blocked là nhãn. Mỗi thẻ có mã WBS, người làm/review, hạn, effort còn lại, điều kiện nghiệm thu và bằng chứng; mỗi người tối đa một thẻ Doing. Cập nhật trước 20:00 và rà tối đa 15 phút lúc 20:00 giờ Việt Nam. Đã thiết lập kiểm tra GitHub lúc 20:15 hằng ngày trong chat điều phối đến 20/11; chỉ cảnh báo khi có thay đổi đáng kể hoặc cần quyết định, không thay xác nhận của thành viên.
 
 Tiến độ = tổng effort kế hoạch của task Done / 126 × 100%. Chỉ Done khi tác giả đã tự kiểm tra, xử lý góp ý nếu có và kiểm thử phù hợp đã đạt; review chéo được khuyến khích. Không suy ra tiến độ nhóm từ số test backend; chưa xác nhận giờ công và ngày bắt đầu thật.
 

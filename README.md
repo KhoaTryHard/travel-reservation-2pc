@@ -101,6 +101,7 @@ RPC child thật và DB tạm không thay cho nghiệm thu browser/lifecycle c�
 Load chạy nền (10 yêu cầu/4 worker mặc định), chỉ một đợt; lưu tối đa 20 đợt trong bộ nhớ.
 `LifecycleManager` là interface bàn giao cho Hữu: khi chưa truyền manager vào API,
 overview ghi unmanaged và thao tác services trả 503; không nhận quyền sở hữu tiến trình ngoài.
+Xem [bản bàn giao của Khoa](docs/KHOA_HANDOFF.md) để nối UI/manager, xem bằng chứng và các đầu vào còn thiếu.
 
 Mọi RPC: POST /action với JSON object; HTTP 200 chứa kết quả hoặc `{"error":"..."}`. Client phải kiểm tra error; đây là quy ước RPC tối giản, không phải thiết kế REST production.
 
@@ -143,7 +144,7 @@ Bản học thuật dùng 1 tài nguyên DEFAULT mỗi RM và 1 đơn vị mỗi
 
 Coordinator tiếp nhận nhiều request đồng thời nhưng tuần tự hóa end/abort/recovery bằng mutex để dễ kiểm chứng. Participant có khóa độc quyền bền vững theo resource và từ chối ngay khi xung đột; chưa có hàng đợi công bằng hoặc phát hiện deadlock đa tài nguyên. Một coordinator duy nhất, không có HA/Raft hay peer termination. Giả định lỗi crash/recovery, đĩa bền vững không mất/hỏng và cuối cùng kết nối được phục hồi. Nếu coordinator/DB mất vĩnh viễn thì không bảo đảm tiến triển.
 
-Chỉ lắng nghe loopback, endpoint không có xác thực/TLS; chaos phục vụ phòng lab. Không mở Internet. Có thể dùng các tiến trình trên cùng máy để minh họa failure độc lập và RPC; chưa kiểm thử triển khai nhiều máy hoặc Windows thực tế. Đã chạy kiểm thử subprocess trên Linux trong môi trường tạo sản phẩm. Cần nhóm chạy lại trên máy thuyết trình.
+RPC chỉ lắng nghe loopback, không có xác thực/TLS; chaos phục vụ phòng lab. Không mở Internet. API dashboard bổ sung Host/Origin/token phiên cho thao tác POST. Có thể dùng các tiến trình trên cùng máy để minh họa failure độc lập và RPC; chưa kiểm thử triển khai nhiều máy. Ngày 09/11/2026 đã chạy 34 test backend/API trên Windows/Python 3.11.15; CI Ubuntu/Windows với Python 3.10/3.13 cũng đạt. Xem [log thực tế](docs/khoa_test_results.txt). UI/manager thật, Chrome/Edge và diễn tập trên máy thuyết trình vẫn cần nhóm kiểm chứng.
 
 ## Nguồn môn học
 

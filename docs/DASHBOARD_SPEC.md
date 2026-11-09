@@ -187,6 +187,6 @@ API khi không có implementation dùng `unmanaged`, không giả định RPC kh
 ### Bàn giao, trạng thái và lịch bù
 
 - Khoa: W01 contract và W02 API. Hữu: W05 xác nhận dữ liệu/khóa, W06 manager, W07 child thật. Khánh: W09 UI/token, W10 browser.
-- Giữ hạn gốc W01 08/11, dự báo mới 10/11; overview thật dự báo 10/11. M1 13/11 vẫn là mục tiêu có điều kiện theo đầu vào thật, không tự đổi deadline.
+- Giữ hạn gốc W01 08/11, dự báo toàn phần mới 10/11; overview thật dự báo bù ban đầu 10/11 và đã kiểm chứng qua API ngày 09/11. M1 13/11 vẫn là mục tiêu có điều kiện theo đầu vào thật, không tự đổi deadline.
 - Cần Hữu xác nhận interface/ownership và Khánh xác nhận envelope/session trước khi W01 nghiệm thu toàn phần. Thiếu xác nhận được ghi là pending, không đóng issue để lấy tiến độ.
 - CI backend baseline `d3c39e7` đã đạt bốn job; lần kiểm chứng local mới phải ghi riêng môi trường/kết quả. Kiểm thử API/lifecycle/browser chưa được suy từ backend baseline.
