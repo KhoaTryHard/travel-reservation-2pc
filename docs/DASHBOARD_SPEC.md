@@ -119,3 +119,74 @@ Giữ 14 test backend. Bổ sung test API với lỗi node từng phần, timeou
 - [ ] Chạy đủ demo, lưu commit/Python/browser, log và ảnh thực tế.
 
 Chỉ ghi hoàn thành sau khi tác giả tự kiểm tra, xử lý góp ý nếu có, kiểm thử phù hợp đạt, tài liệu khớp hành vi và cả ba giải thích được phần sở hữu. Review chéo được khuyến khích; không bắt buộc người khác Approve để merge PR. Không ghi dự đoán thành kết quả thực nghiệm.
+
+## 8. Contract bàn giao W01 — 09/11/2026
+
+Đây là contract kỹ thuật để triển khai W02/W06/W09, chưa xác nhận Hữu/Khánh đã nhận hoặc đồng thuận. Tên node trên wire luôn là `coordinator`, `airline`, `hotel` (chữ thường). RPC/backend hiện có giữ nguyên. Frontend chỉ gọi API cùng nguồn.
+
+### Phiên và HTTP
+
+`GET /api/session` trả `{"session_token":"<random>"}`. Mỗi vòng đời HTTP server tạo token ngẫu nhiên; frontend giữ trong bộ nhớ và gửi header `X-Session-Token` trên mọi POST. Sau khi dashboard restart, lấy token mới trước khi gửi lại **cùng booking token/payload**. Token phiên không phải booking token.
+
+Server chỉ bind `127.0.0.1`; Host phải đúng host/port server (`127.0.0.1` hoặc `localhost`). Nếu Origin hiện diện, phải trùng origin của Host. Không bật CORS. Sai Host/Origin/token phiên trả 403 trước khi chạy thao tác. JSON phải là object; request tối đa 64 KiB. Không nhận URL RPC, executable, command, DB path hoặc service name tùy ý từ browser.
+
+Lỗi JSON dạng `{"error":{"code":"invalid_input","message":"..."}}`. Booking đã gửi upstream nhưng không lấy được kết quả kèm `token`, `payload`, `tx` nếu đã biết và `outcome_unknown:true`; không bịa `state`. Timeout trả 504, lỗi kết nối/protocol upstream 502. Input sai 400; token khác payload 409; ID/tên không tồn tại 404 chỉ khi xác minh được. Trong lúc chưa nối manager, endpoint lifecycle trả 503 `lifecycle_unavailable`, không tác động node bên ngoài.
+
+### Overview và chi tiết
+
+Mỗi node là một envelope có `health`, `snapshot`, `last_success_at` (UTC ISO-8601 hoặc null), `stale`, `error` (null hoặc code/message) và `lifecycle`. Cache chỉ cập nhật khi đọc health/snapshot hợp lệ; lỗi giữ snapshot trước, `stale:true`; chưa từng đọc được thì snapshot null. Một lần đọc health + snapshot dùng chung ngân sách 2 giây/node, ba node đọc song song. Không dùng timestamp khác node để sắp xếp một lịch sử toàn cục.
+
+Ví dụ một phần `GET /api/overview`:
+
+```json
+{
+  "nodes": {
+    "coordinator": {
+      "health": {"ok": true, "role": "coordinator"},
+      "snapshot": {"transactions": [], "events": []},
+      "last_success_at": "2026-11-09T08:00:00Z",
+      "stale": false,
+      "error": null,
+      "lifecycle": {"state": "unmanaged", "managed": false}
+    }
+  }
+}
+```
+
+Kết quả thực luôn có đủ ba key node. Coordinator snapshot chuyển `payload` từ JSON string thành object, `ack` thành list và thêm `complete` (đủ hai ACK). Participant giữ `inventory`, `reservations`, `locks`, `events` từ RPC. UI tự tính số giữ theo reservations PREPARED, hiển thị khóa riêng; không suy số giữ bằng toàn bộ available.
+
+`GET /api/transactions/{tx}` trả `{"tx":"...","nodes":{...},"transaction":{...}}`. Envelopes như overview nhưng snapshot lọc theo tx (participant vẫn có inventory, chỉ giữ reservation/lock/events đúng tx). `transaction` là bản ghi Coordinator đã chuẩn hóa hoặc null. 404 chỉ khi snapshot Coordinator mới đọc thành công và xác nhận không có tx; Coordinator không đọc được trả 502/504 kèm dữ liệu từng node, kể cả participant còn PREPARED. Dữ liệu Coordinator cũ chỉ là stale, không chứng minh quyết định hiện tại.
+
+### Booking, fault và load
+
+`POST /api/bookings` nhận đủ ba string không rỗng, tối đa 128 ký tự:
+
+```json
+{"token":"booking-001","airline":"DEFAULT","hotel":"DEFAULT"}
+```
+
+Begin rồi end dùng **một deadline tổng 30 giây**. Kết quả 200 là bản ghi Coordinator có token/tx/payload/state/ack/complete. ABORTED hợp lệ vẫn là 200, không phải lỗi HTTP. Cùng token/payload trả lại cùng tx; khác payload trả 409. Không tự động retry một yêu cầu bằng token mới.
+
+`POST /api/faults`: `{"service":"coordinator","point":"after_decision","mode":"crash"}` hoặc delay kèm `seconds` hữu hạn 0–30. Kiểm tra whitelist theo vai trò trước RPC; trả kết quả `armed` của backend. UI chỉ arm một lỗi cho mỗi kịch bản chính.
+
+`POST /api/load`: `{"count":10,"workers":4}`; chỉ nhận số nguyên (không nhận bool), count 1–50/workers 1–8. Trả 202 `{"run_id":"..."}`. `GET /api/load/{run_id}` trả run_id, state (`running`/`complete`), count, workers, processed và results. Mỗi result có token, `result` hoặc `error`/`outcome_unknown`; lỗi một request không dừng cả đợt. 409 khi đợt trước đang chạy. Token riêng từng request; payload dùng DEFAULT/DEFAULT. Giữ tối đa 20 đợt trong bộ nhớ, loại đợt hoàn tất cũ nhất; ID không còn trả 404. Không có bảo đảm lưu load qua restart.
+
+### Interface process manager bàn giao cho Hữu
+
+Khoa cung cấp `LifecycleManager` Protocol; Hữu cung cấp implementation và truyền vào HTTP server:
+
+```python
+def snapshot(self) -> dict[str, dict]: ...
+def control(self, name: str, action: str) -> dict: ...
+```
+
+`snapshot()` trả đủ ba node, mỗi node có tối thiểu state, managed, pid (hoặc null), error (hoặc null). State: starting/running/stopping/stopped/failed. Phải trả nhanh để overview đọc khi start/stop đang chờ. `control()` nhận service map cố định và start/stop/restart; tự đảm bảo khóa từng node, timeout 10/5 giây, child ownership, DB cũ, log và cleanup. Trả lifecycle record khi hoàn tất; ném `LifecycleError(status, code, message)` cho lỗi dự kiến (409 cổng bận/xung đột, 504 timeout, 502 child lỗi). Manager giữ trách nhiệm cleanup trong entrypoint sở hữu child.
+
+API khi không có implementation dùng `unmanaged`, không giả định RPC khỏe đồng nghĩa child thuộc dashboard. Kiểm thử API dùng manager double chỉ chứng minh hợp đồng adapter; W07 phải có child thật. Entry `run_dashboard_api.py` chạy API độc lập, không phải lệnh `run_dashboard.py`/dashboard đầy đủ của M1.
+
+### Bàn giao, trạng thái và lịch bù
+
+- Khoa: W01 contract và W02 API. Hữu: W05 xác nhận dữ liệu/khóa, W06 manager, W07 child thật. Khánh: W09 UI/token, W10 browser.
+- Giữ hạn gốc W01 08/11, dự báo mới 10/11; overview thật dự báo 10/11. M1 13/11 vẫn là mục tiêu có điều kiện theo đầu vào thật, không tự đổi deadline.
+- Cần Hữu xác nhận interface/ownership và Khánh xác nhận envelope/session trước khi W01 nghiệm thu toàn phần. Thiếu xác nhận được ghi là pending, không đóng issue để lấy tiến độ.
+- CI backend baseline `d3c39e7` đã đạt bốn job; lần kiểm chứng local mới phải ghi riêng môi trường/kết quả. Kiểm thử API/lifecycle/browser chưa được suy từ backend baseline.
