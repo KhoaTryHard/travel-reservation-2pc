@@ -120,6 +120,74 @@ Giữ 14 test backend. Bổ sung test API với lỗi node từng phần, timeou
 
 Chỉ ghi hoàn thành sau khi tác giả tự kiểm tra, xử lý góp ý nếu có, kiểm thử phù hợp đạt, tài liệu khớp hành vi và cả ba giải thích được phần sở hữu. Review chéo được khuyến khích; không bắt buộc người khác Approve để merge PR. Không ghi dự đoán thành kết quả thực nghiệm.
 
+### Ma trận nghiệm thu tích hợp W03a/W03b
+
+Đây là kế hoạch kiểm chứng cho Khoa và hai owner tích hợp. Bằng chứng hiện có được
+đối chiếu ngày 09/11/2026 tại source `0911815a8180ca7fa7ff0fd917eea8c9a21aa527`:
+[34 test backend/API và môi trường thực tế](khoa_test_results.txt),
+[CI bốn job](https://github.com/KhoaTryHard/travel-reservation-2pc/actions/runs/42576693232).
+Các tên test dưới đây thuộc [API](../tests/test_dashboard_api.py),
+[fault/recovery](../tests/test_dashboard_faults.py),
+[load/adapter](../tests/test_dashboard_operations.py) và [backend](../tests/test_system.py).
+Test dùng child RPC thật vẫn không chứng minh ownership/lifecycle của manager thật.
+
+| ID / gate | Thao tác và tiêu chí quan sát | Bằng chứng tự động có sẵn | Phần tích hợp cần chạy / owner |
+|---|---|---|---|
+| A01 / M1 | DB mới mỗi RM có 5 DEFAULT; đặt một combo → COMMITTED, ACK airline+hotel, complete=true, tồn hai bên 4 | `test_booking_retry_and_detail_use_real_rpc_data` | **Chưa chạy** trên web; Khánh thao tác, Khoa đối chiếu payload/tx/ACK/tồn |
+| A02 / M1 | Yêu cầu mới hotel=MISSING → ABORTED; khi đủ ACK, không còn khóa của tx và tồn hai bên vẫn bằng trước yêu cầu | `test_abort_and_partial_failure_keep_correct_inventory`, `test_invalid_hotel_aborts_both` | **Chưa chạy** trên web; Khoa/Khánh; lưu log từng node và tồn trước/sau |
+| A03 / M1 | Retry cùng token/payload, double-click, hai tab, reload khi đang gửi → cùng tx, chỉ một lần trừ tồn; localStorage ghi trước gửi và phục hồi đúng payload | API retry và backend `test_concurrent_same_token` | **Chưa chạy** double-click/tab/reload/localStorage; Khánh (#23), Khoa kiểm tra effect |
+| A04 / M1 | Cùng token khác hotel → HTTP 409 token_conflict; không tạo booking mới; yêu cầu mới sau ABORTED dùng token mới | API real-RPC retry/conflict, backend `test_token_conflict` | **Chưa chạy** cách UI khóa/sửa payload; Khánh/Khoa |
+| A05 / M1 | Hotel mất kết nối: node khỏe vẫn có dữ liệu, hotel stale giữ snapshot/lần thành công cũ; chưa từng đọc được thì snapshot=null, không hiện tồn 0 | `test_partial_failure_keeps_stale_data_and_never_invents_zero`, `test_invalid_snapshot_preserves_last_good_cache` | **Chưa chạy** nhãn dữ liệu cũ/lỗi/freshness trên web; Khánh; Hữu dừng đúng child |
+| A06 / M1–M2 | Mất phản hồi trước/sau begin: HTTP 502/504, outcome_unknown=true, giữ token/payload/tx nếu biết; kiểm tra/retry đúng yêu cầu, không tự đổi ABORTED | `test_booking_timeout_preserves_request_and_known_tx`, `test_unknown_before_begin_reply_and_invalid_upstream` | **Chưa chạy** reload/retry sau mất phản hồi; Khánh/Khoa; ghi request đã lưu và response thực |
+| A07 / M2 | Hotel after_commit/crash: quyết định COMMITTED, ACK còn thiếu/complete=false; restart cùng DB → ACK đủ, tồn chỉ giảm một lần | `test_commit_waiting_for_ack_stays_committed_and_replays_once` | **Chưa chạy** nhãn “đang chờ xác nhận” và restart qua UI; Hữu/Khánh, Khoa xác minh replay |
+| A08 / M2 | Coordinator after_votes/crash: hai RM PREPARED/giữ khóa, web và hai child còn sống; RM restart giữ PREPARED; Coordinator restart cùng DB → ABORTED và giải phóng khóa | `test_crash_before_decision_keeps_prepared_then_aborts`; backend kiểm tra RM restart trong `test_coordinator_crash_before_decision_blocks_then_aborts` | **Chưa chạy** crash/restart bằng manager/UI; Hữu/Khánh, Khoa đối chiếu log/quyết định |
+| A09 / M2 | Coordinator after_decision/crash: đã ghi COMMITTED trước pha 2; restart cùng DB replay COMMIT, đủ ACK, không đổi abort hoặc trừ lần hai | `test_crash_after_decision_replays_commit_once`, `test_coordinator_crash_after_one_ack` | **Chưa chạy** bằng manager/UI; Hữu/Khánh; Khoa kiểm tra quyết định trước/sau |
+| A10 / M2 | Hotel after_prepare/crash → Coordinator abort; restart nhận replay. before_prepare/delay 3s vượt timeout 2s → abort; sau thông điệp muộn không hồi sinh khóa | Backend `test_participant_crash_after_prepare`, `test_timeout_and_late_prepare_tombstone` | **Chưa chạy** fault/nhãn/khóa trên web; Hữu/Khánh; chờ hook hoàn tất rồi chụp snapshot mới |
+| A11 / M1 | start đang chạy không tạo child mới; stop đã dừng vô hại; restart đúng child/DB; request đồng thời được tuần tự hóa theo node, state chuyển tiếp có giới hạn | Adapter chỉ có `test_lifecycle_adapter_and_missing_manager` với double | **Chưa chạy** manager thật; Hữu (#13–#15/#17); Khoa nối API; Khánh kiểm tra nút/busy |
+| A12 / M1–G10 | Cổng bận do tiến trình ngoài → lỗi 409, không sở hữu/kill nó; child sống nhưng health lỗi hiển thị riêng; crash một child không làm web/hai child kia tắt | Chưa có bằng chứng manager thật; test adapter không thay thế | **Chưa chạy**; Hữu cung cấp PID/log/cổng/health, Khoa xác minh overview, Khánh kiểm tra nhãn |
+| A13 / G10 | Ctrl+C/đóng entry cleanup đúng child sở hữu, không ảnh hưởng tiến trình ngoài; DB giữ nguyên để chạy lại | Chưa có entry/manager thật trong source baseline | **Chưa chạy**; Hữu (#15/#17), Khánh kiểm tra máy demo; không suy cleanup khi OS cưỡng bức hủy supervisor |
+| A14 / M2 | Load 10/4 trả 202/run_id, đọc tiến độ khi đang chạy; token riêng; kết quả từng request; committed ≤ tồn ban đầu, tồn sau = tồn trước − số committed khi đã phân giải đủ | `test_load_is_background_bounded_single_run_and_unique_tokens`, `test_http_booking_fault_load_and_missing_manager` | **Chưa chạy** UI/load thật; Khánh/Khoa; unknown phải kiểm tra bằng token trước khi chốt tổng |
+| A15 / G10 | Count 1–50, workers 1–8, một đợt; sai trả 400, bận trả 409; 20 đợt lưu trong bộ nhớ, dashboard restart không hứa giữ lịch sử load | `test_load_validation_and_retention` và test load nền | **Chưa chạy** validation/tiến độ/bận/restart trên UI; Khánh/Khoa |
+| A16 / G10 | Host/Origin/session và JSON không hợp lệ bị từ chối trước mọi mutation; xác minh RPC/manager/load không được gọi; request hợp lệ vẫn tới đúng đích | Baseline HTTP chỉ phủ một phần; kiểm thử mở rộng ở nhánh riêng bên dưới | **Chưa chạy** boundary với entry tích hợp; Khoa (#7), Hữu/Khánh không bypass boundary khi ghép |
+| A17 / G10–M3 | Poll sau khi lượt trước xong; giữ focus/lựa chọn tx; state có chữ, thao tác bàn phím, màn hình laptop và Chrome/Edge trên máy demo | Chưa có bằng chứng browser trong source baseline | **Chưa chạy**; Khánh (#23/#24/#25), Khoa review UI; ghi version/ảnh/video thực |
+
+Bổ sung độc lập: nhánh `test/7-http-boundary`, commit
+[`fa9bf814089daa7617b20be8ef11bbf841ea2879`](https://github.com/KhoaTryHard/travel-reservation-2pc/commit/fa9bf814089daa7617b20be8ef11bbf841ea2879)
+đã chạy local 42/42 test (157.750s), Windows-10-10.0.26300-SP0 / Python 3.11.15.
+Tám test HTTP kiểm tra tất cả nhóm POST, cả response và việc không gọi RPC/manager/load;
+có ca hợp lệ làm đối chứng và sửa lỗi chấp nhận session header lặp. Đây là bằng chứng
+trên nhánh đó, chưa tự gộp vào baseline và chưa có CI PR mới hoặc nghiệm thu lifecycle/browser.
+
+### Cách lập biên bản và chốt gate
+
+Trước mỗi ca, ghi commit của bản tích hợp, Python/OS, browser/version, PID/cổng/DB của
+manager và tồn/khóa ban đầu. Dùng DB tạm/cổng riêng cho tự động; demo sạch chỉ chuẩn bị
+trước buổi chạy. Giữ DB và token/payload suốt ca crash/recovery. Không dùng một lần đọc
+snapshot để kết luận đồng thời mọi node; ghi freshness của từng node và đợi đủ ACK
+trước khi chốt hậu điều kiện. Events đối chiếu theo seq trong từng node.
+
+Mỗi lần thực thi ghi vào issue nghiệm thu #8/#9 theo mẫu, liên kết ảnh/log thực tế:
+
+```text
+Ca Axx / gate / thời điểm Asia/Saigon:
+Commit tích hợp / branch / CI URL và head:
+OS / Python / browser/version / máy chạy:
+Owner thao tác / owner đối chiếu:
+PID/cổng/DB / tồn và khóa ban đầu:
+Token/payload/tx hoặc run_id:
+Các bước đã chạy / HTTP / state / ACK / tồn và khóa sau:
+Log theo node + seq / ảnh hoặc video / freshness:
+Kết quả: Pass / Fail / Chưa chạy; lý do:
+Nếu Fail hoặc thiếu đầu vào: issue lỗi / owner / hạn gỡ / thời điểm kiểm tra lại:
+```
+
+Khoa chốt M1 (13/11) khi A01–A05 và A11–A12 có bằng chứng web/lifecycle phù hợp;
+M2 (15/11) khi unknown, crash/replay/ACK và load đã đối chiếu trên web; G10 (16/11)
+cần cả hồi quy backend/API/lifecycle/browser và bốn job CI trên head cần merge.
+A17 và máy demo tiếp tục được đối chiếu ở M3 (18/11). Ca Fail hoặc **chưa chạy** phải
+ghi lý do/owner và giữ gate tương ứng chưa đạt; không lấy bảng kế hoạch hay số test để
+đóng #8/#9. Khi source thay đổi sau nghiệm thu, chạy lại các ca bị ảnh hưởng trên commit mới.
+
 ## 8. Contract bàn giao W01 — 09/11/2026
 
 Đây là contract kỹ thuật để triển khai W02/W06/W09, chưa xác nhận Hữu/Khánh đã nhận hoặc đồng thuận. Tên node trên wire luôn là `coordinator`, `airline`, `hotel` (chữ thường). RPC/backend hiện có giữ nguyên. Frontend chỉ gọi API cùng nguồn.
