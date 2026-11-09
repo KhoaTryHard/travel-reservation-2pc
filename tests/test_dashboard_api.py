@@ -115,6 +115,8 @@ class HTTPTests(unittest.TestCase):
         booking = {'token': 'b1', 'airline': 'DEFAULT', 'hotel': 'DEFAULT'}
         self.assertEqual(self.request('/api/session', headers={'Host': 'evil.example'})[0], 403)
         self.assertEqual(self.request('/api/bookings', booking)[0], 403)
+        self.assertEqual(self.request('/api/bookings', booking,
+                                      {'X-Session-Token': '\u00e9'})[0], 403)
         headers = {'X-Session-Token': self.token, 'Origin': 'https://evil.example'}
         self.assertEqual(self.request('/api/bookings', booking, headers)[0], 403)
         headers['Origin'] = self.base

@@ -2,7 +2,7 @@
 
 ## 1. Mục tiêu và trạng thái
 
-Dashboard là ứng dụng web cục bộ **sẽ xây dựng** để nhóm và giảng viên quan sát giao dịch đặt combo một chỗ máy bay và một phòng khách sạn bằng 2PC. Backend/CLI hiện có là nền tảng; tài liệu này không xác nhận giao diện hoặc API web đã được triển khai. Giữ 14 ngày/126 giờ công theo [kế hoạch nhóm](plan.md).
+Dashboard là ứng dụng web cục bộ để nhóm và giảng viên quan sát giao dịch đặt combo một chỗ máy bay và một phòng khách sạn bằng 2PC. Backend/CLI hiện có là nền tảng. Cập nhật 09/11: API độc lập của Khoa đã có entry `run_dashboard_api.py`; UI và process manager thật chưa tích hợp, chưa nghiệm thu dashboard/browser. Phần dưới giữ yêu cầu mục tiêu; xem mục 8 để nối API. Giữ 14 ngày/126 giờ công theo [kế hoạch nhóm](plan.md).
 
 Phạm vi: đặt/retry, tồn kho, giao dịch/ACK/events, gây lỗi, chạy/dừng/khởi động lại ba dịch vụ ngay trên trình duyệt. Đăng nhập khách hàng, thanh toán, lịch bay/ngày nhận phòng và triển khai Internet ngoài bản này.
 

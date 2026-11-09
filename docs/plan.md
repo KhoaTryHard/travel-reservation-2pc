@@ -4,9 +4,9 @@
 
 Sản phẩm mục tiêu là ứng dụng web cục bộ đặt combo một chỗ máy bay và một phòng khách sạn, quan sát giao dịch 2PC và điều khiển Coordinator, Airline, Hotel trên trình duyệt. CLI tiếp tục phục vụ kiểm thử và đối chiếu. Xem [đặc tả dashboard](DASHBOARD_SPEC.md) để triển khai UI, API, quản lý tiến trình và demo.
 
-**Dashboard, API web và bộ quản lý tiến trình là phần sẽ xây dựng.** Repo hiện có backend ba dịch vụ, CLI và 14 bài kiểm thử. Tại commit `1fc1b274de111f009a3746a894038a8fe72501fa`, [CI](https://github.com/KhoaTryHard/travel-reservation-2pc/actions/runs/42186762833) đã chạy đủ 14 bài và đạt trên Ubuntu/Windows với Python 3.10/3.13. Đây là bằng chứng backend, chưa phải bằng chứng dashboard hoặc diễn tập trên máy thuyết trình.
+**Cập nhật 09/11:** API độc lập của Khoa được triển khai qua các PR W02; UI và bộ quản lý tiến trình thật chưa tích hợp. Backend ba dịch vụ, CLI và 14 bài kiểm thử tiếp tục là nền tảng. Tại commit `1fc1b274de111f009a3746a894038a8fe72501fa`, [CI](https://github.com/KhoaTryHard/travel-reservation-2pc/actions/runs/42186762833) đã chạy đủ 14 bài và đạt trên Ubuntu/Windows với Python 3.10/3.13. Bằng chứng API mới ghi trong PR và bản bàn giao, không thay cho nghiệm thu dashboard hoặc diễn tập trên máy thuyết trình.
 
-Giữ 14 ngày, tổng **126 giờ công dự kiến, mỗi người 42 giờ**, với điều kiện tận dụng backend hiện có. Ngày 1 do nhóm xác nhận; chưa ấn định ngày lịch hoặc ghi nhận % hoàn thành. Đăng nhập khách hàng, thanh toán, lịch bay/ngày nhận phòng và triển khai Internet ngoài phạm vi bản này.
+Giữ 14 ngày, tổng **126 giờ công dự kiến, mỗi người 42 giờ**, với điều kiện tận dụng backend hiện có. Nhóm đã xác nhận D1 = **07/11/2026**, D14 = **20/11/2026**. Giữ hạn gốc W01 08/11; dự báo bàn giao đầy đủ mới 10/11 và overview thật 10/11. Theo dõi [issue điều phối #3](https://github.com/KhoaTryHard/travel-reservation-2pc/issues/3); không coi effort kế hoạch là giờ đã tiêu. Đăng nhập khách hàng, thanh toán, lịch bay/ngày nhận phòng và triển khai Internet ngoài phạm vi bản này.
 
 ## Phân công và WBS
 

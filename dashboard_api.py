@@ -11,7 +11,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Callable
+from typing import Any, Callable, Protocol
 from urllib.error import URLError
 from urllib.parse import unquote, urlsplit
 from urllib.request import Request, urlopen
@@ -38,6 +38,16 @@ class UpstreamError(Exception):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+class LifecycleError(ApiError):
+    """Expected manager failure; status/code/message cross the HTTP boundary."""
+
+
+class LifecycleManager(Protocol):
+    def snapshot(self) -> dict[str, dict]: ...
+
+    def control(self, name: str, action: str) -> dict: ...
 
 
 def rpc_transport(url: str, action: str, data: dict, timeout: float) -> dict:
@@ -85,13 +95,18 @@ def normalized_transaction(row: dict) -> dict:
 
 class DashboardAPI:
     def __init__(self, urls: dict | None = None,
-                 transport: Callable = rpc_transport) -> None:
+                 transport: Callable = rpc_transport,
+                 manager: LifecycleManager | None = None) -> None:
         self.urls = dict(DEFAULT_URLS if urls is None else urls)
         if set(self.urls) != set(NAMES):
             raise ValueError('Exactly three fixed services required')
         self.transport = transport
         self.cache: dict[str, dict] = {}
         self.node_locks = {name: threading.Lock() for name in NAMES}
+        self.manager = manager
+        self.loads: dict[str, dict] = {}
+        self.load_lock = threading.Lock()
+        self.active_load: str | None = None
 
     def _call(self, name: str, action: str, data: dict, deadline: float) -> dict:
         remaining = deadline - time.monotonic()
@@ -112,6 +127,8 @@ class DashboardAPI:
                     'inventory', 'reservations', 'locks', 'events')
                 if any(not isinstance(snapshot.get(key), list) for key in required):
                     raise ValueError('Invalid snapshot lists')
+                if any(not isinstance(row, dict) for key in required for row in snapshot[key]):
+                    raise ValueError('Invalid snapshot rows')
                 if name == 'coordinator':
                     snapshot['transactions'] = [normalized_transaction(row)
                                                 for row in snapshot['transactions']]
@@ -131,6 +148,18 @@ class DashboardAPI:
     def overview(self) -> dict:
         with ThreadPoolExecutor(max_workers=3) as pool:
             nodes = dict(zip(NAMES, pool.map(self._node, NAMES)))
+        if self.manager is not None:
+            try:
+                lifecycle = self.manager.snapshot()
+                for name in NAMES:
+                    if not isinstance(lifecycle[name], dict):
+                        raise ValueError('Invalid lifecycle record')
+                for name in NAMES:
+                    nodes[name]['lifecycle'] = copy.deepcopy(lifecycle[name])
+            except Exception as exc:
+                for node in nodes.values():
+                    node['lifecycle'] = {'state': 'failed', 'managed': False,
+                                         'error': str(exc), 'pid': None}
         return {'nodes': nodes}
 
     def transaction(self, tx: str) -> dict:
@@ -193,6 +222,68 @@ class DashboardAPI:
         except UpstreamError as exc:
             raise ApiError(504 if exc.code == 'timeout' else 502, exc.code, str(exc)) from exc
 
+    def service(self, name: str, action: str) -> dict:
+        if name not in NAMES or action not in ('start', 'stop', 'restart'):
+            raise ApiError(404, 'not_found', 'Unknown service/action')
+        if self.manager is None:
+            raise ApiError(503, 'lifecycle_unavailable', 'Lifecycle manager is not connected')
+        try:
+            result = self.manager.control(name, action)
+            if not isinstance(result, dict):
+                raise ValueError('Invalid lifecycle result')
+            return result
+        except LifecycleError:
+            raise
+        except Exception as exc:
+            raise ApiError(503, 'lifecycle_unavailable', str(exc)) from exc
+
+    def start_load(self, data: dict) -> dict:
+        count, workers = data.get('count', 10), data.get('workers', 4)
+        if type(count) is not int or not 1 <= count <= 50:
+            raise ApiError(400, 'invalid_input', 'count must be an integer, 1..50')
+        if type(workers) is not int or not 1 <= workers <= 8:
+            raise ApiError(400, 'invalid_input', 'workers must be an integer, 1..8')
+        with self.load_lock:
+            if self.active_load is not None:
+                raise ApiError(409, 'load_busy', 'A load run is already active')
+            while len(self.loads) >= 20:
+                del self.loads[next(iter(self.loads))]
+            run_id = secrets.token_hex(16)
+            self.loads[run_id] = {'run_id': run_id, 'state': 'running', 'count': count,
+                                  'workers': workers, 'processed': 0, 'results': []}
+            self.active_load = run_id
+        threading.Thread(target=self._run_load, args=(run_id, count, workers), daemon=True).start()
+        return {'run_id': run_id}
+
+    def _run_load(self, run_id: str, count: int, workers: int) -> None:
+        def one(index: int) -> None:
+            token = f'load:{run_id}:{index}'
+            try:
+                result = {'token': token, 'result': self.book({
+                    'token': token, 'airline': 'DEFAULT', 'hotel': 'DEFAULT'})}
+            except ApiError as exc:
+                result = {'token': token, **exc.body()}
+            except Exception:
+                # Never leave the run stuck or silently invent a final decision.
+                result = {'token': token, 'outcome_unknown': True,
+                          'error': {'code': 'internal_error', 'message': 'Load request failed'}}
+            with self.load_lock:
+                self.loads[run_id]['results'].append(result)
+                self.loads[run_id]['processed'] += 1
+        try:
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                list(pool.map(one, range(count)))
+        finally:
+            with self.load_lock:
+                self.loads[run_id]['state'] = 'complete'
+                self.active_load = None
+
+    def load_status(self, run_id: str) -> dict:
+        with self.load_lock:
+            if run_id not in self.loads:
+                raise ApiError(404, 'not_found', 'Unknown load run')
+            return copy.deepcopy(self.loads[run_id])
+
     def dispatch(self, method: str, path: str, data: dict) -> tuple[int, dict]:
         if method == 'GET' and path == '/api/overview':
             return 200, self.overview()
@@ -202,6 +293,14 @@ class DashboardAPI:
             return 200, self.book(data)
         if method == 'POST' and path == '/api/faults':
             return 200, self.fault(data)
+        if method == 'POST' and path.startswith('/api/services/'):
+            parts = path.split('/')
+            if len(parts) == 5:
+                return 200, self.service(parts[3], parts[4])
+        if method == 'POST' and path == '/api/load':
+            return 202, self.start_load(data)
+        if method == 'GET' and path.startswith('/api/load/'):
+            return 200, self.load_status(path.removeprefix('/api/load/'))
         raise ApiError(404, 'not_found', 'Unknown API route')
 
 
@@ -231,7 +330,8 @@ def create_http_server(api: DashboardAPI, port: int = 8080) -> ThreadingHTTPServ
                 if len(self.headers.get_all('Host', [])) != 1 or host not in hosts:
                     raise ApiError(403, 'invalid_host', 'Invalid Host')
                 origin = self.headers.get('Origin')
-                if origin is not None and origin != 'http://' + host:
+                if (len(self.headers.get_all('Origin', [])) > 1
+                        or origin is not None and origin != 'http://' + host):
                     raise ApiError(403, 'invalid_origin', 'Cross-origin request rejected')
                 path = urlsplit(self.path).path
                 if method == 'GET' and path == '/api/session':
@@ -240,7 +340,7 @@ def create_http_server(api: DashboardAPI, port: int = 8080) -> ThreadingHTTPServ
                 data = {}
                 if method == 'POST':
                     supplied = self.headers.get('X-Session-Token', '')
-                    if not secrets.compare_digest(supplied, session_token):
+                    if not secrets.compare_digest(supplied.encode('utf-8'), session_token.encode('ascii')):
                         raise ApiError(403, 'invalid_session', 'Session token required')
                     if self.headers.get('Transfer-Encoding'):
                         raise ApiError(400, 'invalid_input', 'Transfer encoding unsupported')

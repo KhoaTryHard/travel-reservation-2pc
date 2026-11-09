@@ -1,0 +1,51 @@
+Khoa API verification — actual local run
+UTC: 2026-11-09T07:00:06.747572+00:00
+Environment: Windows-10-10.0.26300-SP0 / Python 3.11.15
+Parent commit: e4422e2e0c6f3d5ff006b2332db97de45f54d668; working-tree source hashes below (before commit).
+SHA256 dashboard_api.py: 3141d39a0071e92d18bfd4ff3e57b7daccbcf380e8654504709fc4d80a89b03c
+SHA256 run_dashboard_api.py: 6fc7eefc86213fe0fd7d6e74c20cddc93e52eef6f18b898a3327f9d8e66abb2e
+SHA256 tests/test_dashboard_api.py: 5ab312583384241c77ee670b8396856c116080150ad71c9a25b9714bea4b1032
+SHA256 tests/test_dashboard_faults.py: 47e4db0055d1e12c3f54086180de307986c425bf405863335d329be595b52f88
+SHA256 tests/test_dashboard_operations.py: 3436a731326fe550c2df1720a72ea208fb55c989fd058194bf54f6c1dea0e824
+
+test_booking_uses_same_token_and_one_total_deadline (test_dashboard_api.APITests.test_booking_uses_same_token_and_one_total_deadline) ... ok
+test_partial_failure_keeps_stale_data_and_never_invents_zero (test_dashboard_api.APITests.test_partial_failure_keeps_stale_data_and_never_invents_zero) ... ok
+test_snapshot_normalizes_json_and_ack_without_mutating_source (test_dashboard_api.APITests.test_snapshot_normalizes_json_and_ack_without_mutating_source) ... ok
+test_unknown_tx_requires_fresh_coordinator (test_dashboard_api.APITests.test_unknown_tx_requires_fresh_coordinator) ... ok
+test_host_origin_and_session_checked_before_mutation (test_dashboard_api.HTTPTests.test_host_origin_and_session_checked_before_mutation) ... ok
+test_invalid_json_non_object_and_request_size (test_dashboard_api.HTTPTests.test_invalid_json_non_object_and_request_size) ... ok
+test_abort_and_partial_failure_keep_correct_inventory (test_dashboard_api.RealRPCAPITests.test_abort_and_partial_failure_keep_correct_inventory) ... ok
+test_booking_retry_and_detail_use_real_rpc_data (test_dashboard_api.RealRPCAPITests.test_booking_retry_and_detail_use_real_rpc_data) ... ok
+test_booking_timeout_preserves_request_and_known_tx (test_dashboard_faults.FaultTests.test_booking_timeout_preserves_request_and_known_tx) ... ok
+test_fault_whitelist_validation_before_rpc (test_dashboard_faults.FaultTests.test_fault_whitelist_validation_before_rpc) ... ok
+test_invalid_snapshot_preserves_last_good_cache (test_dashboard_faults.FaultTests.test_invalid_snapshot_preserves_last_good_cache) ... ok
+test_unknown_before_begin_reply_and_invalid_upstream (test_dashboard_faults.FaultTests.test_unknown_before_begin_reply_and_invalid_upstream) ... ok
+test_commit_waiting_for_ack_stays_committed_and_replays_once (test_dashboard_faults.RealRecoveryTests.test_commit_waiting_for_ack_stays_committed_and_replays_once) ... ok
+test_crash_after_decision_replays_commit_once (test_dashboard_faults.RealRecoveryTests.test_crash_after_decision_replays_commit_once) ... ok
+test_crash_before_decision_keeps_prepared_then_aborts (test_dashboard_faults.RealRecoveryTests.test_crash_before_decision_keeps_prepared_then_aborts) ... ok
+test_failed_manager_does_not_erase_healthy_rpc_data (test_dashboard_operations.OperationTests.test_failed_manager_does_not_erase_healthy_rpc_data) ... ok
+test_lifecycle_adapter_and_missing_manager (test_dashboard_operations.OperationTests.test_lifecycle_adapter_and_missing_manager) ... ok
+test_load_is_background_bounded_single_run_and_unique_tokens (test_dashboard_operations.OperationTests.test_load_is_background_bounded_single_run_and_unique_tokens) ... ok
+test_load_validation_and_retention (test_dashboard_operations.OperationTests.test_load_validation_and_retention) ... ok
+test_http_booking_fault_load_and_missing_manager (test_dashboard_operations.RealHTTPLoadTests.test_http_booking_fault_load_and_missing_manager) ... ok
+test_concurrent_bookings_no_overselling (test_system.SystemTests.test_concurrent_bookings_no_overselling) ... ok
+test_concurrent_same_token (test_system.SystemTests.test_concurrent_same_token) ... ok
+test_coordinator_crash_after_decision_replays_commit (test_system.SystemTests.test_coordinator_crash_after_decision_replays_commit) ... ok
+test_coordinator_crash_after_one_ack (test_system.SystemTests.test_coordinator_crash_after_one_ack) ... ok
+test_coordinator_crash_before_decision_blocks_then_aborts (test_system.SystemTests.test_coordinator_crash_before_decision_blocks_then_aborts) ... ok
+test_explicit_abort (test_system.SystemTests.test_explicit_abort) ... ok
+test_invalid_hotel_aborts_both (test_system.SystemTests.test_invalid_hotel_aborts_both) ... ok
+test_lost_commit_ack_replay (test_system.SystemTests.test_lost_commit_ack_replay) ... ok
+test_participant_crash_after_prepare (test_system.SystemTests.test_participant_crash_after_prepare) ... ok
+test_persistent_lock_conflict (test_system.SystemTests.test_persistent_lock_conflict) ... ok
+test_reject_opposite_decision (test_system.SystemTests.test_reject_opposite_decision) ... ok
+test_success_and_duplicate_end (test_system.SystemTests.test_success_and_duplicate_end) ... ok
+test_timeout_and_late_prepare_tombstone (test_system.SystemTests.test_timeout_and_late_prepare_tombstone) ... ok
+test_token_conflict (test_system.SystemTests.test_token_conflict) ... ok
+
+----------------------------------------------------------------------
+Ran 34 tests in 50.383s
+
+OK
+
+Exit code: 0
