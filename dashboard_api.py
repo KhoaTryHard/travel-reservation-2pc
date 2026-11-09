@@ -340,7 +340,8 @@ def create_http_server(api: DashboardAPI, port: int = 8080) -> ThreadingHTTPServ
                 data = {}
                 if method == 'POST':
                     supplied = self.headers.get('X-Session-Token', '')
-                    if not secrets.compare_digest(supplied.encode('utf-8'), session_token.encode('ascii')):
+                    if (len(self.headers.get_all('X-Session-Token', [])) != 1
+                            or not secrets.compare_digest(supplied.encode('utf-8'), session_token.encode('ascii'))):
                         raise ApiError(403, 'invalid_session', 'Session token required')
                     if self.headers.get('Transfer-Encoding'):
                         raise ApiError(400, 'invalid_input', 'Transfer encoding unsupported')
