@@ -104,6 +104,71 @@ Phần bổ sung: Hotel crash after_prepare rồi restart nhận abort; after_co
 
 SV1 trình bày quyết định/ACK; SV2 giải thích tồn, ghi tạm, khóa; SV3 thao tác web/retry/fault/load. CLI/terminal dùng đối chiếu và dự phòng, không thay mục tiêu điều khiển toàn bộ qua web.
 
+### Lời dẫn và phân vai cho Khoa
+
+Kịch bản dưới đây để diễn tập W04b cùng W11b, dự kiến 19/11; **chưa chạy** cùng nhóm
+hoặc trên máy demo. Lời giải thích được đối chiếu source `0911815a8180ca7fa7ff0fd917eea8c9a21aa527`
+và [log backend/API](khoa_test_results.txt) ngày 09/11, Windows/Python 3.11.15.
+Khoa giữ nhịp và giải thích giao thức; Khánh thao tác UI; Hữu theo dõi child/DB/khóa.
+Trước diễn tập, nhóm phải ghi commit tích hợp/Python/Chrome hoặc Edge và hoàn thành
+kiểm chứng UI/manager tương ứng; source baseline hiện chỉ có entry API độc lập.
+
+| Thời gian | Phần Khoa trình bày | Dữ liệu nhóm phải chỉ ra |
+|---|---|---|
+| 0:00–1:30 | “Mỗi combo cần một chỗ máy bay và một phòng ở hai tiến trình, mỗi bên có DB riêng. Coordinator điều phối hai pha để hai tài nguyên nhận cùng quyết định cuối.” Nêu mô hình lỗi crash/recovery, không có thanh toán thật | Khánh chỉ ba node/health, Hữu chỉ ba DB riêng. Tồn ban đầu của một buổi demo sạch là 5/5 |
+| 1:30–3:30 | “Pha 1 hỏi các bên có thể giữ tài nguyên không; YES chỉ gửi sau PREPARED/khóa đã bền. Pha 2 phát quyết định đã ghi bền.” Sau đặt thành công: “COMMITTED là quyết định; complete xác nhận đủ hai ACK.” Retry: “Giữ token và payload, nên lấy lại tx cũ.” | Khánh đặt, ghi token/tx/payload, quan sát ACK/2 và tồn 4/4; retry/reload giữ cùng yêu cầu. Hữu đối chiếu một lần giảm tồn |
+| 3:30–4:30 | “Hotel MISSING không thể vote YES, nên quyết định là ABORT. Chỗ máy bay mới chỉ được giữ tạm phải được giải phóng.” | Yêu cầu mới/token mới; ABORTED, đủ ACK, khóa của tx đã xóa; tồn vẫn 4/4 |
+| 4:30–7:30 | “Coordinator chết sau vote, trước quyết định: hai RM vẫn PREPARED. Chúng không được tự bỏ khóa theo timeout vì chưa biết quyết định. Đây là tính blocking của 2PC.” Sau restart: “Coordinator đọc nhật ký thấy chưa có quyết định cuối và ghi ABORT, rồi replay.” | Khánh arm after_votes/crash và đặt; UI ghi unknown, web/hai RM vẫn sống. Hữu chỉ PREPARED/locks từ snapshot mới; restart đúng Coordinator, giữ DB. Cuối cùng ABORTED/đủ ACK, tồn 4/4 |
+| 7:30–10:30 | “Lần này hook chạy sau khi quyết định COMMIT đã được ghi bền. Sau restart phải tiếp tục COMMIT; không được chuyển abort vì client bị timeout.” Nêu khả năng mất ACK và replay idempotent | Khánh arm after_decision/crash với token mới, đặt, restart cùng DB và retry đúng payload. Khi Coordinator đang chết, UI vẫn unknown; sau phục hồi thấy COMMITTED/đủ ACK, tồn 3/3 đúng một lần |
+| 10:30–12:30 | “Load gửi 10 booking với 4 worker. Chỉ chấp nhận tối đa lượng tồn còn; số commit thực tế phải đối chiếu, không hứa luôn đúng ba. Kết quả mạng unknown phải được kiểm tra trước khi tổng kết.” | Khánh chỉ run_id/tiến độ/từng token. Khoa đối chiếu số commit và tồn sau; Hữu kiểm tra không oversell/khóa còn lại, không suy abort từ HTTP lỗi |
+| 12:30–13:30 | “Bản học thuật dùng một Coordinator, đĩa bền và giả định kết nối hồi phục; chưa có HA hay xử lý mất DB vĩnh viễn. Test tự động chứng minh phần backend/API; browser và vận hành phải có bằng chứng riêng trên bản tích hợp.” | Chỉ commit/log/CI đúng source đang demo; ghi hạn chế thực tế. Dành phần còn lại đến 15:00 cho câu hỏi |
+
+Khoa không đọc toàn bộ events thành một timeline toàn cục: chọn seq theo từng node để
+giải thích prepare → quyết định → effect/replay. Nếu polling bỏ qua trạng thái ngắn,
+dùng log thật hoặc fault để quan sát; không chèn trạng thái/animation giả vào kết quả.
+
+### Chuẩn bị và xử lý khi demo không theo kỳ vọng
+
+- Trước buổi chạy: ghi commit, phiên bản môi trường, cổng/DB và số tồn ban đầu. Dừng
+  các dịch vụ cũ; nếu cần DB sạch thì lưu trữ/đổi tên data trước buổi demo. Không chạy
+  `run_demo.py` đồng thời với supervisor. Kiểm tra manager sở hữu đúng child và web
+  vẫn sống qua một node crash trước khi trình bày.
+- Mỗi bước chỉ arm một lỗi; yêu cầu mới dùng token mới, retry giữ nguyên token/payload.
+  Sau crash/restart luôn dùng DB cũ. Hook chưa kích hoạt bị mất khi node restart;
+  ghi nhận hook đã arm/đã chạy từ bằng chứng, không suy từ thao tác bấm nút.
+- Nếu thiếu phản hồi: đọc “Chưa xác định kết quả”, giữ yêu cầu cũ, kiểm tra trạng thái
+  rồi retry đúng payload. Không chuyển sang token mới chỉ để được thông báo thành công.
+- Nếu thấy COMMITTED nhưng chưa đủ ACK: giải thích đang chờ xác nhận; Hữu kiểm tra RM
+  lỗi và restart đúng child, Khoa theo dõi replay. Không abort hoặc trừ tồn thủ công.
+- Nếu cổng bận/manager không sở hữu child: dừng kịch bản, ghi lỗi/owner; không kill tiến
+  trình ngoài. Nếu chỉ có CLI/API dùng làm dự phòng thì nói rõ phạm vi đã chạy; phần
+  lifecycle/web tiếp tục ghi **chưa chạy**, không chốt M1/M2 bằng demo dự phòng.
+- Nếu thời gian vượt 15 phút: giữ hai ca crash chính; ca Hotel after_commit hoặc delay
+  là bổ sung theo câu hỏi. Không bỏ bước kiểm tra quyết định/ACK/tồn sau recovery.
+  Biên bản ghi bước chưa chạy và người phụ trách; không ghi diễn tập đạt từ kịch bản này.
+
+### Câu hỏi phản biện và ý trả lời của Khoa
+
+| Câu hỏi | Ý trả lời dựa trên bản triển khai |
+|---|---|
+| Tại sao cần hai pha? | Prepare ghi giữ tài nguyên bền trước khi vote YES; Coordinator chỉ COMMIT khi đủ YES rồi ghi quyết định trước pha 2. Một lần gửi commit đơn lẻ không cung cấp bước giữ tài nguyên ở cả hai RM |
+| 2PC có luôn tiến triển khi một bên chết không? | Không. PREPARED có thể blocking đến khi nhận quyết định. Bản này không có HA/peer termination; tiến triển dựa vào phục hồi đúng DB và kết nối trở lại |
+| Timeout có nghĩa giao dịch thất bại không? | Không. Có thể effect/quyết định đã bền nhưng phản hồi mất; API ghi outcome_unknown. Giữ token/payload, kiểm tra/retry; chỉ trạng thái cuối đã đọc được mới cho phép kết luận |
+| COMMITTED khác complete như thế nào? | COMMITTED là quyết định đã bền; complete=true khi ACK của Airline và Hotel đều đã ghi. Thiếu ACK vẫn giữ quyết định COMMIT và replay |
+| Mất ACK rồi gửi COMMIT lại có trừ tồn hai lần? | RM ghi effect/trạng thái/xóa khóa/event nguyên tử. Lần gửi lại thấy COMMITTED và trả kết quả cũ; không chạy cập nhật tồn lần hai |
+| Vì sao PREPARED không tự hết hạn? | Khi mất Coordinator, RM không biết COMMIT đã được ghi ở nơi khác chưa. Tự abort có thể tạo quyết định cuối đối nghịch; phải chờ quyết định hợp lệ |
+| Coordinator khởi động lại quyết định theo cách nào? | ACTIVE/PREPARING chưa có quyết định được ghi ABORTED; COMMITTED/ABORTED có sẵn giữ nguyên và phát lại tới RM thiếu ACK. Không bốc thăm hoặc quyết định theo timeout UI |
+| PREPARE tới muộn có tạo khóa sau abort không? | ABORT ghi tombstone ngay cả khi chưa thấy prepare. Lần prepare cùng tx đọc ABORTED, vote không đồng ý và không tạo khóa |
+| Token phiên có thay booking token không? | Không. Token phiên gắn với HTTP server và được lấy lại sau web restart. Booking token/payload gắn yêu cầu nghiệp vụ và phải giữ nguyên; token cũ khác payload trả conflict |
+| Hai tab có bảo đảm exactly-once không? | UNIQUE token và replay idempotent bảo vệ effect cho cùng token/payload với DB giữ nguyên. Hai token khác nhau là hai yêu cầu; chưa có thanh toán thật nên không khẳng định exactly-once cho ngân hàng |
+| Có thể gộp timestamps để chứng minh thứ tự toàn cục? | Không. Snapshot ở các node được đọc riêng, cache có thể stale; dùng seq từng node và liên kết bằng tx. Lần đọc không liên lạc được không được hiển thị tồn 0 |
+| Vì sao load có thể abort khi vẫn còn tồn? | RM từ chối ngay khi resource đang có khóa độc quyền; không có hàng đợi công bằng. Cần chứng minh không oversell và effect khớp số commit đã phân giải, không hứa một số commit cố định |
+| Bộ test đã chứng minh dashboard hoàn chỉnh chưa? | Chỉ nêu đúng commit/môi trường/test đã chạy. Child RPC và manager double không thay bằng chứng manager thật, UI, Chrome/Edge và máy demo; các ca đó vẫn cần owner nghiệm thu |
+
+Sau diễn tập, Khoa ghi thời lượng, commit, ca đã chạy/chưa chạy, log/ảnh và lỗi có owner/hạn
+vào #11; Khánh bàn giao bằng chứng W11b, Hữu xác nhận phần dữ liệu/lifecycle. Chỉ chốt
+bản nộp sau kiểm tra lại các ca bị ảnh hưởng bởi sửa lỗi và đối chiếu báo cáo/source.
+
 ## 7. Kiểm thử và nghiệm thu
 
 Giữ 14 test backend. Bổ sung test API với lỗi node từng phần, timeout, retry và load; test process manager với child thật, cổng bị chiếm, lifecycle lặp, restart giữ DB và cleanup đúng ownership. Dùng data tạm/cổng riêng để không tác động dữ liệu demo.
