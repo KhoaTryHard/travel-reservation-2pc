@@ -128,6 +128,11 @@ Chỉ ghi hoàn thành sau khi tác giả tự kiểm tra, xử lý góp ý nế
 
 `GET /api/session` trả `{"session_token":"<random>"}`. Mỗi vòng đời HTTP server tạo token ngẫu nhiên; frontend giữ trong bộ nhớ và gửi header `X-Session-Token` trên mọi POST. Sau khi dashboard restart, lấy token mới trước khi gửi lại **cùng booking token/payload**. Token phiên không phải booking token.
 
+Mỗi POST phải có đúng một header `X-Session-Token`; thiếu, sai hoặc lặp header đều trả
+403 `invalid_session` trước khi đọc JSON hoặc gọi booking/fault/load/lifecycle. Host và
+Origin lặp cũng bị từ chối; Origin có thể vắng với client cục bộ nhưng nếu có phải khớp
+chính xác `http://` + Host (kể cả cổng).
+
 Server chỉ bind `127.0.0.1`; Host phải đúng host/port server (`127.0.0.1` hoặc `localhost`). Nếu Origin hiện diện, phải trùng origin của Host. Không bật CORS. Sai Host/Origin/token phiên trả 403 trước khi chạy thao tác. JSON phải là object; request tối đa 64 KiB. Không nhận URL RPC, executable, command, DB path hoặc service name tùy ý từ browser.
 
 Lỗi JSON dạng `{"error":{"code":"invalid_input","message":"..."}}`. Booking đã gửi upstream nhưng không lấy được kết quả kèm `token`, `payload`, `tx` nếu đã biết và `outcome_unknown:true`; không bịa `state`. Timeout trả 504, lỗi kết nối/protocol upstream 502. Input sai 400; token khác payload 409; ID/tên không tồn tại 404 chỉ khi xác minh được. Trong lúc chưa nối manager, endpoint lifecycle trả 503 `lifecycle_unavailable`, không tác động node bên ngoài.
