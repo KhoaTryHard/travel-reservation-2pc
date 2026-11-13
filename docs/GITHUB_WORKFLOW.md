@@ -67,6 +67,18 @@ Tên nhánh và Conventional Commits được kiểm tra qua checklist và revie
 7. Giải quyết hết thảo luận và chờ đủ bốn job CI đạt: Ubuntu/Windows với Python 3.10/3.13. Nhánh phải cập nhật với nhánh đích; không bỏ qua yêu cầu, kể cả admin.
 8. Dùng **Squash and merge** cho PR từ nhánh công việc, đặt tiêu đề squash theo Conventional Commits. Dùng **Create a merge commit** cho PR `develop → main` và `main → develop` để giữ quan hệ lịch sử hai nhánh dài hạn. Nhánh công việc được tự động xóa sau merge; hai nhánh chính được bảo vệ khỏi xóa.
 
+Khi PR chỉ bàn giao một phần, dùng `Refs #issue`, ghi phần đã kiểm chứng và phần còn thiếu
+cùng owner; giữ issue mở đến khi đủ tiêu chí. Chỉ dùng `Closes #issue` khi đã nghiệm thu
+toàn bộ phạm vi. Kiểm tra cả mục **Development**: liên kết đóng issue được thêm thủ công
+có thể vẫn còn dù body đã đổi sang `Refs`. Với PR đã merge, đối chiếu trạng thái/checklist
+issue với bằng chứng thực tế; không đóng hồi tố chỉ vì PR đã merge. Nếu cần tách việc,
+ghi owner, hạn và effort còn lại ở issue tiếp nối, giữ tổng baseline 126 giờ.
+
+Assignee phản ánh owner, reviewer phản ánh người thực sự được mời; không tự ghi nhận
+Approve. Label và milestone theo nội dung/gate, không theo trạng thái merged. Khi bàn giao
+nhánh để tác giả tự mở PR, cung cấp tên nhánh, commit, nội dung `Refs`, kết quả local và
+các ca chưa chạy. CI bốn job chỉ được ghi đạt sau khi kiểm tra trên head của PR đó.
+
 Chạy cùng lệnh CI ở máy cá nhân, không cần cài thêm thư viện:
 
 ```bash
