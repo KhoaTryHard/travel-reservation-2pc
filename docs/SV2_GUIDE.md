@@ -1,151 +1,148 @@
-# Hướng Dẫn Kỹ Thuật, Kiến Trúc & Vận Hành — SV2 (Trần Lê Quang Hữu)
+# Tài Liệu Kỹ Thuật, Kiến Trúc Dữ Liệu, Lifecycle & Vận Hành — SV2 (Trần Lê Quang Hữu)
 
 **Học phần:** Hệ thống Phân tán (INT1405) — Học viện Công nghệ Bưu chính Viễn thông (PTIT)  
 **Đề tài (Track B):** Hệ thống Đặt chỗ Du lịch Phân tán với Two-Phase Commit (2PC)  
 **Sinh viên 2 (SV2):** **Trần Lê Quang Hữu** (MSSV: `N23DCCN024`, GitHub: `@n23dccn024-commits`)  
 **Nhánh Git:** `feat/13-lifecycle-manager`  
-**Pull Request đang mở:** [PR #38 trên GitHub](https://github.com/KhoaTryHard/travel-reservation-2pc/pull/38)  
-**Reviewers:** `@KhoaTryHard` (Nhóm trưởng / SV1), `@Khanh0338` (SV3)
+**Pull Request:** [PR #38 trên GitHub](https://github.com/KhoaTryHard/travel-reservation-2pc/pull/38)  
+**Phạm vi công việc:** `W05` (#12), `W06a` (#13), `W06b` (#14), `W06c` (#15), `W07a` (#16), `W07b` (#17), `W08` (#18)
 
 ---
 
-## ⚡ 1. CHẠY THỬ NGHIỆM DỰ ÁN NGAY (QUICK START)
+## 1. Khởi chạy Nhanh & Kiểm thử (Quick Start)
 
-Để bạn có thể nhìn thấy ngay toàn bộ hệ thống hoạt động trước mắt chỉ với **1 lệnh duy nhất**, chúng tôi đã chuẩn bị sẵn file kịch bản trực quan `demo_sv2.py`.
-
-### Bước 1: Mở PowerShell và di chuyển vào thư mục dự án
+### 1.1. Chạy bản demo trực quan phần SV2 (`demo_sv2.py`)
+Từ thư mục gốc của kho mã nguồn (`travel-reservation-2pc`):
 ```powershell
-cd F:\K1_N4_HTPT\travel-reservation-2pc
-```
-
-### Bước 2: Chạy bản demo trực quan của bạn
-```powershell
-$env:PATH = "C:\Users\TRAN HUU\AppData\Local\Programs\Python\Python313;" + $env:PATH
 python demo_sv2.py
 ```
 
-### 👉 Những gì bạn sẽ được chứng kiến trực tiếp trên màn hình:
-1. **Khởi động 3 server phân tán độc lập:** `ProcessManager` (do bạn viết) tự động khởi chạy 3 tiến trình nền:
-   - **Coordinator:** Cổng `8000`, DB: `data/coordinator.db`
-   - **Airline:** Cổng `8001`, DB: `data/airline.db`
-   - **Hotel:** Cổng `8002`, DB: `data/hotel.db`
-2. **Kiểm tra trạng thái (Snapshot):** Giám sát phi chặn thông qua PID, port, trạng thái hoạt động của từng node.
-3. **Thực thi giao dịch 2PC đặt combo du lịch:**
-   - Client gửi yêu cầu với mã `Booking Token`.
-   - **Pha 1 (Prepare):** Coordinator hỏi Airline và Hotel xem còn chỗ không. Hai bên kiểm tra tồn kho, khóa tài nguyên (`locks`) và ghi tạm ứng `PREPARED`. Cả hai bỏ phiếu **YES**.
-   - **Pha 2 (Commit):** Coordinator ra quyết định **GLOBAL_COMMIT**. Hai bên trừ kho từ **5 $\rightarrow$ 4**, giải phóng khóa và xác nhận thành công.
-4. **Chống trừ tiền trùng (Idempotency):** Gửi lại chính xác `Booking Token` cũ. Hệ thống thông minh nhận diện yêu cầu cũ, trả về kết quả đã commit mà **kho không bị trừ lần 2** (vẫn còn nguyên 4).
-5. **Thử nghiệm sự cố Crash & Phục hồi (Recovery):** Đột ngột ngắt tiến trình `Hotel` (`stop`), kiểm tra snapshot báo `stopped`. Sau đó khởi động lại (`restart`), **dữ liệu trong SQLite DB cũ vẫn còn nguyên vẹn 100%**.
-6. **Dọn dẹp tự động (Cleanup):** `ProcessManager` tắt toàn bộ tiến trình con khi kết thúc, không để lại tiến trình rác chạy ngầm.
+Kịch bản [demo_sv2.py](../demo_sv2.py) tự động khởi chạy 3 tiến trình thật qua [lifecycle.py](../lifecycle.py):
+- **Coordinator:** `127.0.0.1:8000` — DB: `data/coordinator.db`
+- **Airline RM:** `127.0.0.1:8001` — DB: `data/airline.db`
+- **Hotel RM:** `127.0.0.1:8002` — DB: `data/hotel.db`
+
+### 1.2. Chạy bộ kiểm thử Lifecycle & Recovery thực tế (`tests/test_lifecycle.py`)
+```powershell
+python -m unittest discover -s tests -p "test_lifecycle.py" -v
+```
+
+### 1.3. Chạy toàn bộ bộ kiểm thử tích hợp của dự án
+```powershell
+python -m unittest discover -s tests -v
+```
 
 ---
 
-## 2. Tổng quan Dự án & Phân công Nhiệm vụ
-
-Hệ thống mô phỏng bài toán kinh điển trong Hệ thống phân tán: Khách hàng đặt trọn gói một chuyến du lịch gồm **1 vé máy bay (Airline)** và **1 phòng khách sạn (Hotel)**. Yêu cầu giao dịch phải đạt tính **nguyên tử (Atomicity)**:
-- Hoặc **cả 2 cùng đặt thành công** (Global Commit).
-- Hoặc nếu một bên hết chỗ hoặc gặp sự cố, **cả 2 phải cùng hủy** (Global Abort), không bao giờ có chuyện đặt được máy bay mà không có phòng khách sạn.
+## 2. Kiến trúc Module của SV2 & Phân công Nhóm
 
 ```mermaid
 flowchart TD
-    Client[Client / Web Dashboard] -->|begin / end| Coord[Coordinator - SV1 Khoa]
-    Coord -->|Pha 1: Prepare| Airline[Airline RM - SV2 Hữu]
-    Coord -->|Pha 1: Prepare| Hotel[Hotel RM - SV2 Hữu]
-    Coord -->|Pha 2: Commit / Abort| Airline
-    Coord -->|Pha 2: Commit / Abort| Hotel
+    Client["Client / Web Dashboard (SV3 Khánh)"] -->|HTTP REST / Session Token| API["DashboardAPI (SV1 Khoa)"]
+    API -->|begin / end / status / fault| Coord["Coordinator :8000 (SV1 Khoa)"]
+    Coord -->|Pha 1: prepare| Airline["Airline RM :8001 (SV2 Hữu)"]
+    Coord -->|Pha 1: prepare| Hotel["Hotel RM :8002 (SV2 Hữu)"]
+    Coord -->|Pha 2: commit / abort| Airline
+    Coord -->|Pha 2: commit / abort| Hotel
     
-    PM[ProcessManager - SV2 Hữu] -.->|start / stop / restart / snapshot| Coord
-    PM -.->|start / stop / restart / snapshot| Airline
-    PM -.->|start / stop / restart / snapshot| Hotel
+    API -->|snapshot / control| PM["ProcessManager (SV2 Hữu)"]
+    PM -.->|start / stop / restart / poll| Coord
+    PM -.->|start / stop / restart / poll| Airline
+    PM -.->|start / stop / restart / poll| Hotel
 ```
 
-### Phân công trách nhiệm 3 sinh viên:
-- **SV1 (Nguyễn Đăng Khoa):** 2PC Coordinator / TP Monitor, API Backend cho Web Dashboard, cơ chế điều phối và lưu trữ trạng thái giao dịch.
-- **SV2 (Trần Lê Quang Hữu - Bạn):** 
-  - **Resource Manager (Airline & Hotel):** Quản lý 2 cơ sở dữ liệu độc lập, cơ chế khóa cục bộ (`locks`), ghi tạm ứng (`tentative writes` / `PREPARED`), bảo toàn dữ liệu bằng SQLite WAL.
-  - **Process Manager ([lifecycle.py](file:///F:/K1_N4_HTPT/travel-reservation-2pc/lifecycle.py)):** Trình quản lý vòng đời tiến trình cho Web Dashboard, điều khiển start/stop/restart, phát hiện sự cố crash, xử lý cổng bận an toàn.
-- **SV3 (Dương Quốc Khánh):** Giao diện Web Dashboard (frontend) và kịch bản bơm lỗi / kiểm thử tải (Chaos injector).
+- **SV1 (Nguyễn Đăng Khoa — `@KhoaTryHard`):** Coordinator 2PC ([coordinator.py](../coordinator.py)), Dashboard Backend API & HTTP boundary ([dashboard_api.py](../dashboard_api.py), [run_dashboard_api.py](../run_dashboard_api.py)), điều phối tích hợp và báo cáo.
+- **SV2 (Trần Lê Quang Hữu — `@n23dccn024-commits`):**
+  - **Resource Managers ([participant.py](../participant.py), [common.py](../common.py)):** Quản lý dữ liệu SQLite WAL cho `airline` và `hotel`, khóa giao dịch (`locks`), bản ghi tạm ứng (`PREPARED`), idempotent commit/abort, tombstone chống gói tin `PREPARE` đến muộn.
+  - **Process Manager ([lifecycle.py](../lifecycle.py)):** Quản lý vòng đời tiến trình con (`start`, `stop`, `restart`, `snapshot`, `close_all`) theo giao thức `LifecycleManager` trong [docs/DASHBOARD_SPEC.md](DASHBOARD_SPEC.md).
+- **SV3 (Dương Quốc Khánh — `@Khanh0338`):** Giao diện Web Dashboard tiếng Việt, bộ công cụ bơm lỗi/chạy tải và kiểm thử trình duyệt.
 
 ---
 
-## 3. Kiến trúc Kỹ thuật Module của SV2
+## 3. Thiết kế Cơ sở Dữ liệu, Khóa Giao dịch & Phục hồi (`W05`, `W07a`, `W08`)
 
-### 3.1. Cơ chế Lưu trữ Bền vững & Khóa Đồng thời (`participant.py`, `common.py`)
+### 3.1. Sơ đồ Cơ sở Dữ liệu SQLite tại Participant ([participant.py](../participant.py))
 
-Mỗi Participant (Airline và Hotel) sở hữu một file cơ sở dữ liệu SQLite riêng biệt, hoạt động ở chế độ **WAL (Write-Ahead Logging)** với cấu trúc 4 bảng:
+Mỗi Resource Manager (`airline` và `hotel`) sử dụng một tệp SQLite độc lập ở chế độ **WAL (`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;`)** gồm 4 bảng:
 
-| Tên Bảng SQLite | Mục đích & Ràng buộc chính | Thời điểm cập nhật |
+| Bảng | Cột & Ràng buộc chính | Vai trò trong 2PC |
 |---|---|---|
-| `inventory` | Lưu số lượng chỗ còn lại (`resource` là PK, `available >= 0`). Mặc định có 5 chỗ `DEFAULT`. | Chỉ trừ 1 khi có lệnh **COMMIT** ở Pha 2. |
-| `locks` | Khóa tài nguyên độc quyền (`resource` PK, `tx` UNIQUE). | Ghi khóa ở Pha 1 (`PREPARE`), xóa khóa ở Pha 2 (`COMMIT`/`ABORT`). |
-| `reservations` | Lưu trạng thái giao dịch (`tx` PK, `state`: `PREPARED`, `COMMITTED`, `ABORTED`). | Tạo bản ghi ở Pha 1, đổi trạng thái ở Pha 2. |
-| `events` | Nhật ký sự kiện cục bộ theo số thứ tự `seq` tăng dần. | Ghi lại mỗi khi có thay đổi trạng thái giao dịch. |
+| `inventory` | `resource TEXT PRIMARY KEY`, `available INTEGER NOT NULL CHECK(available >= 0)` | Lưu tồn kho thực tế (mặc định `DEFAULT = 5`). **Chỉ trừ 1 khi nhận quyết định `COMMIT`**; không bao giờ âm (`available >= 0`). |
+| `locks` | `resource TEXT PRIMARY KEY`, `tx TEXT NOT NULL UNIQUE`, `updated REAL NOT NULL` | Khóa độc quyền trên từng `resource` trong pha `PREPARE`. Ngăn hai giao dịch đồng thời giữ cùng một tài nguyên. |
+| `reservations` | `tx TEXT PRIMARY KEY`, `resource TEXT`, `state TEXT NOT NULL`, `updated REAL NOT NULL` | Lưu trạng thái giao dịch tại RM: `PREPARED`, `COMMITTED`, hoặc `ABORTED`. Khi ghi tombstone cho giao dịch chưa từng `PREPARE`, cột `resource` mang giá trị `NULL` và `state = 'ABORTED'`. |
+| `events` | `seq INTEGER PRIMARY KEY AUTOINCREMENT`, `ts REAL NOT NULL`, `tx TEXT`, `event TEXT NOT NULL`, `detail TEXT` | Nhật ký sự kiện bền vững theo thứ tự thời gian phục vụ đối chiếu trên Dashboard. |
 
-#### Quy trình Two-Phase Commit tại Participant:
+### 3.2. Quy tắc Đối chiếu Tồn kho, Khóa và Trạng thái Giao dịch (`W05`)
 1. **Pha 1 (`prepare`):**
-   - Kiểm tra: `inventory.available > 0` và `locks` chưa bị giao dịch khác chiếm giữ.
-   - Thực thi nguyên tử trong 1 local transaction: Tạo bản ghi trong `locks` và ghi `PREPARED` vào `reservations`.
-   - Trả lời Coordinator: **VOTE YES** (nếu thỏa mãn) hoặc **VOTE NO** (nếu hết chỗ / xung đột).
+   - Nếu `tx` đã tồn tại trong `reservations`:
+     - Trả `vote = True` nếu `state IN ('PREPARED', 'COMMITTED')` và `resource` khớp (idempotent).
+     - Trả `vote = False` nếu `state == 'ABORTED'` (bao gồm cả trường hợp **tombstone** do Coordinator đã hủy vì timeout trước khi gói tin `PREPARE` đến).
+   - Nếu `tx` mới: Kiểm tra `locks` trên `resource` trống và `inventory.available > 0`. Nếu thỏa mãn, ghi nguyên tử vào `locks` và `reservations(tx, resource, 'PREPARED')` trong cùng một giao dịch SQLite (`with self.db:`). **Chưa trừ `inventory.available` ở pha 1.**
 2. **Pha 2 (`commit` / `abort`):**
-   - Nếu nhận `commit`: Đổi reservation sang `COMMITTED`, trừ 1 tồn kho trong `inventory`, xóa khóa trong `locks`.
-   - Nếu nhận `abort`: Đổi reservation sang `ABORTED`, xóa khóa trong `locks`, giữ nguyên tồn kho.
-   - Nếu nhận `abort` khi chưa từng nhận `prepare` (do timeout mạng): Ghi bản ghi **Tombstone** (`resource = NULL`) để nếu gói tin prepare muộn đến sau sẽ bị từ chối ngay lập tức.
-3. **Phục hồi sau sự cố (Crash Recovery):**
-   - Khóa và trạng thái `PREPARED` được ghi bền vững trên đĩa. Nếu server bị sập đột ngột rồi khởi động lại, khóa vẫn được bảo toàn cho đến khi nhận được quyết định chính thức từ Coordinator.
+   - **`commit(tx)`:**
+     - Nếu `state == 'COMMITTED'`: trả kết quả thành công ngay lập tức (**idempotent commit** — tuyệt đối không trừ `inventory.available` lần thứ hai khi Coordinator phát lại lệnh `COMMIT` do mất ACK).
+     - Nếu `state == 'PREPARED'`: cập nhật `UPDATE inventory SET available = available - 1`, chuyển `reservations.state = 'COMMITTED'`, và xóa bản ghi trong `locks`.
+   - **`abort(tx)`:**
+     - Nếu `state == 'ABORTED'`: trả kết quả ngay (idempotent).
+     - Nếu `state == 'PREPARED'`: chuyển `reservations.state = 'ABORTED'`, xóa bản ghi trong `locks`, giữ nguyên `inventory.available`.
+     - Nếu `tx` chưa có trong `reservations`: chèn bản ghi **tombstone** `(tx, NULL, 'ABORTED')` để chặn mọi gói tin `PREPARE` đến muộn không thể hồi sinh khóa.
+3. **Cách UI/API đọc dữ liệu:**
+   - Số chỗ hiển thị trên thẻ node lấy từ `inventory.available` qua RPC `snapshot`, kèm danh sách khóa đang giữ trong `locks` (`PREPARED`).
+   - Ngay cả khi `available > 0`, một yêu cầu đặt chỗ mới vẫn sẽ trả `VOTE_NO` nếu tài nguyên `DEFAULT` đang bị giữ bởi một khóa trong bảng `locks`.
 
 ---
 
-### 3.2. Trình Quản lý Tiến trình ([lifecycle.py](file:///F:/K1_N4_HTPT/travel-reservation-2pc/lifecycle.py))
+## 4. Thiết kế ProcessManager & Quy tắc Vận hành An toàn (`W06a`, `W06b`, `W06c`, `W08`)
 
-`ProcessManager` được thiết kế chặt chẽ theo các nguyên tắc an toàn hệ thống:
-- **Nguyên tắc Quyền sở hữu (Ownership):** Chỉ quản lý các child process do chính nó tạo ra bằng `subprocess.Popen(..., shell=False)`. Tuyệt đối không can thiệp, nhận diện hay tắt nhầm tiến trình ngoài hệ điều hành.
-- **Xử lý Cổng bận (Port Busy):** Khi gọi `start`, nếu cổng mạng đang bị một ứng dụng khác chiếm giữ, hệ thống trả về mã lỗi HTTP 409 `port_busy` và từ chối khởi động đè.
-- **Bảo toàn Cơ sở dữ liệu:** Khi `restart`, tiến trình mới được trỏ đúng vào đường dẫn file DB cũ, đảm bảo tính liên tục của dữ liệu.
-- **Giám sát Phi chặn (Non-blocking):** Phương thức `snapshot()` sử dụng `process.poll()` để kiểm tra trạng thái tức thì, không làm treo ứng dụng web và phát hiện node bị crash ngay lập tức.
-- **Cách ly I/O:** Đầu ra `stdout` và `stderr` được ghi thẳng ra file log riêng biệt `logs/<name>.log`, tránh làm đầy bộ đệm pipe gây đơ tiến trình.
+[lifecycle.py](../lifecycle.py) hiện thực lớp `ProcessManager` tuân thủ đầy đủ giao thức `LifecycleManager` của [dashboard_api.py](../dashboard_api.py):
 
----
+| Thuộc tính / Phương thức | Chi tiết kỹ thuật |
+|---|---|
+| **Bản đồ dịch vụ cố định (`SERVICES`)** | `coordinator` (`127.0.0.1:8000`, `data/coordinator.db`), `airline` (`127.0.0.1:8001`, `data/airline.db`), `hotel` (`127.0.0.1:8002`, `data/hotel.db`). Không nhận đường dẫn thực thi, shell hay tham số dòng lệnh từ trình duyệt. |
+| **`snapshot()`** | Đọc trạng thái phi chặn (non-blocking) cho `/api/overview`. Tự động gọi `proc.poll()` để phát hiện tiến trình con tự thoát (ví dụ chaos hook `os._exit(86)`) và chuyển `state` sang `'failed'` kèm mã thoát, không tự động khởi động lại để người vận hành quan sát sự cố. |
+| **`control(name, action)`** | Hỗ trợ `start`, `stop`, `restart` cho 3 dịch vụ cố định. Dịch vụ hoặc hành động lạ bị từ chối với `LifecycleError(404, 'not_found', ...)`. Tuần tự hóa thao tác trên từng node bằng khóa riêng `_control_locks[name]`. |
+| **Quyền sở hữu & Cổng bận (`409 port_busy`)** | Chỉ điều khiển hoặc dừng tiến trình con do chính `ProcessManager` sinh ra qua `subprocess.Popen(..., shell=False)`. Khi `start`, nếu cổng đã có tiến trình ngoài lắng nghe (`_port_busy`), trả ngay `LifecycleError(409, 'port_busy', ...)` và không nhận quyền sở hữu hay tắt tiến trình ngoài. |
+| **Bảo toàn DB & Log riêng** | `restart` và `start` luôn dùng lại đúng tệp SQLite hiện có trong `data/`. Đầu ra `stdout`/`stderr` của từng tiến trình con được ghi trực tiếp vào `logs/<name>.log`, ngăn chặn tình trạng đầy bộ đệm pipe làm treo tiến trình. |
+| **Dọn dẹp an toàn (`close_all`)** | Khi tắt Dashboard (`Ctrl+C` / `finally`), `close_all()` gửi `terminate()` (chờ tối đa `5s` trước khi `kill()`) tới các tiến trình con thuộc quyền sở hữu và giữ nguyên toàn bộ tệp `.db`. |
 
-## 4. Bằng chứng Kiểm thử (Test Evidence)
-
-Bộ kiểm thử [tests/test_lifecycle.py](file:///F:/K1_N4_HTPT/travel-reservation-2pc/tests/test_lifecycle.py) gồm 8 test case thực tế:
-
-| STT | Bài kiểm tra | Kết quả | Ý nghĩa kiểm tra |
-|---|---|---|---|
-| 1 | `test_start_is_idempotent_and_stop_is_harmless` | ✅ PASS | Start 2 lần trả về cùng PID; Stop 2 lần an toàn không lỗi |
-| 2 | `test_restart_keeps_the_same_database` | ✅ PASS | Restart node vẫn giữ nguyên dữ liệu trong DB cũ |
-| 3 | `test_busy_port_is_reported_and_external_process_is_untouched` | ✅ PASS | Cổng bận trả 409, không tắt ứng dụng ngoài |
-| 4 | `test_crash_is_isolated_not_auto_restarted_and_prepared_survives` | ✅ PASS | Node bị sập snapshot báo failed; khóa `PREPARED` trong DB sống sót |
-| 5 | `test_concurrent_start_creates_exactly_one_child` | ✅ PASS | Nhiều luồng đồng thời gọi start chỉ sinh ra đúng 1 tiến trình |
-| 6 | `test_snapshot_lists_three_nodes_even_when_nothing_runs` | ✅ PASS | Snapshot hiển thị đủ 3 node ngay cả khi chưa chạy |
-| 7 | `test_close_all_stops_owned_children_and_keeps_data` | ✅ PASS | Dọn dẹp gọn gàng toàn bộ child process khi tắt ứng dụng |
-| 8 | `test_unknown_service_or_action_is_rejected` | ✅ PASS | Từ chối dịch vụ hoặc thao tác sai với mã 400 |
+### Hướng dẫn Vận hành & Xử lý Sự cố (`W08`)
+1. **Xử lý lỗi cổng bận (`409 port_busy`):**
+   - Nếu cổng `8000`, `8001`, hoặc `8002` đang bị một tiến trình cũ bên ngoài chiếm giữ, Dashboard sẽ báo lỗi `port_busy` (`409`).
+   - Cách xử lý: Đóng terminal đang chạy tiến trình cũ hoặc truyền cổng tùy chỉnh qua tham số `--coordinator-port`, `--airline-port`, `--hotel-port` khi khởi chạy Dashboard.
+2. **Xem nhật ký tiến trình (`logs/`):**
+   - Nhật ký chi tiết của từng node nằm tại `logs/coordinator.log`, `logs/airline.log`, `logs/hotel.log`.
+3. **Chuẩn bị dữ liệu sạch trước buổi Demo & Quy tắc khi Demo Crash/Recovery:**
+   - **Trước buổi demo:** Khi toàn bộ dịch vụ đã dừng (`stopped`), có thể xóa thư mục `data/` (hoặc dùng thư mục `--data-dir` mới) để khởi tạo lại tồn kho mặc định `DEFAULT = 5` cho cả Airline và Hotel.
+   - **Trong lúc demo kịch bản Crash / Recovery:** **Tuyệt đối không xóa hay reset thư mục `data/`** giữa lúc node sập và lúc bấm `Start` / `Restart`. Việc giữ nguyên tệp `.db` giúp chứng minh khóa `PREPARED` sống sót qua sự cố sập nguồn và Coordinator phát lại (replay) quyết định `COMMIT`/`ABORT` chính xác sau khi khởi động lại.
 
 ---
 
-## 5. Các Lệnh Hữu Ích Dành Cho Bạn
+## 5. Bằng chứng Kiểm thử & Đối chiếu Tiêu chí Nghiệm thu (`#12` – `#18`)
 
-### 1. Chạy bản demo trực quan:
-```powershell
-$env:PATH = "C:\Users\TRAN HUU\AppData\Local\Programs\Python\Python313;" + $env:PATH
-python demo_sv2.py
-```
+### 5.1. Danh sách 11 bài kiểm thử tự động trong [tests/test_lifecycle.py](../tests/test_lifecycle.py)
 
-### 2. Chạy bộ kiểm thử tự động của SV2:
-```powershell
-$env:PATH = "C:\Users\TRAN HUU\AppData\Local\Programs\Python\Python313;" + $env:PATH
-python -m unittest tests.test_lifecycle -v
-```
+| STT | Tên bài kiểm thử (`LifecycleTests`) | Issue đối chiếu | Kết quả | Nội dung kiểm chứng thực tế |
+|---|---|---|---|---|
+| 1 | `test_start_is_idempotent_and_stop_is_harmless` | `#13`, `#14` | PASS | `start` lặp lại trả cùng PID, không nhân đôi tiến trình; `stop` khi đã dừng là thao tác an toàn. |
+| 2 | `test_restart_keeps_the_same_database` | `#13`, `#18` | PASS | Đặt chỗ trừ tồn kho `5 -> 4`, gọi `restart` sinh PID mới nhưng giữ nguyên tệp DB và tồn kho `4`. |
+| 3 | `test_busy_port_is_reported_and_external_process_is_untouched` | `#15`, `#17` | PASS | Cổng bị chiếm bởi socket ngoài trả `409 port_busy`; gọi `stop` không làm đứt kết nối của tiến trình ngoài. |
+| 4 | `test_crash_is_isolated_not_auto_restarted_and_prepared_survives` | `#14`, `#16` | PASS | `hotel` crash bằng mã `86` sau `prepare` chuyển sang `failed`, không tự restart, 2 node kia vẫn sống, khi bật lại `hotel` khóa `PREPARED` và tồn kho `5` còn nguyên. |
+| 5 | `test_concurrent_start_creates_exactly_one_child` | `#14`, `#17` | PASS | 4 luồng gọi `start('coordinator')` đồng thời chỉ tạo đúng 1 tiến trình con duy nhất. |
+| 6 | `test_snapshot_lists_three_nodes_even_when_nothing_runs` | `#13`, `#14` | PASS | `snapshot()` luôn trả đủ 3 khóa `coordinator`, `airline`, `hotel` ở trạng thái `stopped` khi mới khởi tạo. |
+| 7 | `test_close_all_stops_owned_children_and_keeps_data` | `#15`, `#17` | PASS | `close_all()` dừng toàn bộ tiến trình con sở hữu và giữ nguyên tệp SQLite trên đĩa. |
+| 8 | `test_unknown_service_or_action_is_rejected` | `#15` | PASS | Dịch vụ lạ (`payments`, `../x`) hoặc hành động lạ (`delete`) bị từ chối với mã HTTP `404` (`not_found`). |
+| 9 | `test_http_lifecycle_boundary_and_web_survives_node_crash` | `#14`, `#15`, `#17` | PASS | Kiểm tra qua `DashboardHTTPServer` thật: chặn thiếu `X-Session-Token` (`403`), trả `409 port_busy` qua HTTP, ghi file `logs/<name>.log`, và xác nhận `GET /api/overview` vẫn sống (`200 OK`) khi `hotel` crash. |
+| 10 | `test_coordinator_crash_before_and_after_decision_via_manager` | `#16`, `#17` | PASS | Qua `ProcessManager` + `DashboardAPI`: Coordinator sập trước quyết định (`after_votes`) giữ `PREPARED` rồi `ABORTED` khi bật lại (tồn `5`); sập sau quyết định (`after_decision`) phát lại `COMMIT` đúng 1 lần khi bật lại, retry cùng token không trừ tồn lần 2 (`5 -> 4`). |
+| 11 | `test_lost_ack_after_commit_and_late_prepare_tombstone_via_manager` | `#16`, `#17` | PASS | Qua `ProcessManager` + `DashboardAPI`: `hotel` sập sau `commit` mất ACK (`complete=False`), khi bật lại hoàn tất ACK mà không trừ tồn 2 lần (`5 -> 4`); delay `before_prepare` quá hạn bị ghi tombstone `ABORTED`, gói `prepare` muộn không hồi sinh khóa (`locks = []`). |
 
-### 3. Chạy bộ kiểm thử toàn hệ thống 2PC:
-```powershell
-$env:PATH = "C:\Users\TRAN HUU\AppData\Local\Programs\Python\Python313;" + $env:PATH
-python -m unittest tests.test_system -v
-```
+### 5.2. Bảng Mapping Công việc SV2 (`W05` – `W08`)
 
-### 4. Khởi chạy Dashboard API của Khoa (để chuẩn bị ghép nối UI):
-```powershell
-$env:PATH = "C:\Users\TRAN HUU\AppData\Local\Programs\Python\Python313;" + $env:PATH
-python run_dashboard_api.py --port 8080
-```
-*(Mở trình duyệt truy cập: `http://127.0.0.1:8080/api/overview` để xem JSON trạng thái).*
+| Issue / WBS | Đầu việc | Tệp nguồn & Bài kiểm thử chứng minh |
+|---|---|---|
+| **#12 (`W05`)** | Chốt RM, dữ liệu/khóa và contract lifecycle | [participant.py](../participant.py), [lifecycle.py](../lifecycle.py), Mục 3 & 4 của tài liệu này. |
+| **#13 (`W06a`)** | Process manager: start/stop/restart giữ DB | [lifecycle.py](../lifecycle.py) (`_start`, `_stop`, `control`), Test 1, 2, 6 trong [tests/test_lifecycle.py](../tests/test_lifecycle.py). |
+| **#14 (`W06b`)** | Lifecycle lặp, phát hiện crash và log | [lifecycle.py](../lifecycle.py) (`_refresh`, `_control_locks`, `_log_path`), Test 1, 4, 5, 6, 9 trong [tests/test_lifecycle.py](../tests/test_lifecycle.py). |
+| **#15 (`W06c`)** | Ownership, cổng bận và cleanup an toàn | [lifecycle.py](../lifecycle.py) (`_port_busy`, `close_all`, `control`), Test 3, 7, 8, 9 trong [tests/test_lifecycle.py](../tests/test_lifecycle.py). |
+| **#16 (`W07a`)** | Kiểm thử crash/recovery, PREPARED và tombstone | Test 4, 10, 11 trong [tests/test_lifecycle.py](../tests/test_lifecycle.py) kết hợp [tests/test_system.py](../tests/test_system.py). |
+| **#17 (`W07b`)** | Hồi quy lifecycle/cổng và bàn giao bằng chứng | Toàn bộ 11/11 test trong [tests/test_lifecycle.py](../tests/test_lifecycle.py) và toàn bộ suite trên 4 môi trường CI. |
+| **#18 (`W08`)** | Tài liệu dữ liệu, lifecycle và vận hành | Tài liệu [docs/SV2_GUIDE.md](SV2_GUIDE.md) này (sơ đồ DB, khóa, lifecycle, vận hành, chuẩn bị demo). |
