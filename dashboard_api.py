@@ -11,6 +11,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any, Callable, Protocol
 from urllib.error import URLError
 from urllib.parse import unquote, urlsplit
@@ -91,6 +92,35 @@ def normalized_transaction(row: dict) -> dict:
         raise ValueError('Invalid transaction state')
     row['complete'] = set(row['ack']) == {'airline', 'hotel'}
     return row
+
+
+STATIC_TYPES = {'.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
+                '.js': 'text/javascript; charset=utf-8'}
+
+
+def read_static(root: Path, url_path: str) -> tuple[bytes, str] | None:
+    """Return (body, content type) for a whitelisted file under root, else None.
+
+    Only .html/.css/.js, no dot-files, no parent segments, no symlink escape."""
+    rel = unquote(url_path)
+    if rel == '/':
+        rel = '/index.html'
+    if not rel.startswith('/') or '\x00' in rel or '\\' in rel:
+        return None
+    parts = rel.split('/')[1:]
+    if any(part in ('', '.', '..') or part.startswith('.') for part in parts):
+        return None
+    target = root.joinpath(*parts)
+    kind = STATIC_TYPES.get(target.suffix.lower())
+    if kind is None:
+        return None
+    try:
+        resolved = target.resolve(strict=True)
+        if root not in resolved.parents or not resolved.is_file():
+            return None
+        return resolved.read_bytes(), kind
+    except OSError:
+        return None
 
 
 class DashboardAPI:
@@ -304,8 +334,10 @@ class DashboardAPI:
         raise ApiError(404, 'not_found', 'Unknown API route')
 
 
-def create_http_server(api: DashboardAPI, port: int = 8080) -> ThreadingHTTPServer:
+def create_http_server(api: DashboardAPI, port: int = 8080,
+                       static_dir: str | Path | None = None) -> ThreadingHTTPServer:
     session_token = secrets.token_urlsafe(32)
+    static_root = Path(static_dir).resolve() if static_dir is not None else None
 
     class Handler(BaseHTTPRequestHandler):
         def _respond(self, status: int, result: dict) -> None:
@@ -316,6 +348,20 @@ def create_http_server(api: DashboardAPI, port: int = 8080) -> ThreadingHTTPServ
                 self.send_header('Content-Length', str(len(body)))
                 self.send_header('Cache-Control', 'no-store')
                 self.send_header('X-Content-Type-Options', 'nosniff')
+                self.end_headers()
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+
+        def _respond_static(self, body: bytes, content_type: str) -> None:
+            try:
+                self.send_response(200)
+                self.send_header('Content-Type', content_type)
+                self.send_header('Content-Length', str(len(body)))
+                self.send_header('Cache-Control', 'no-store')
+                self.send_header('X-Content-Type-Options', 'nosniff')
+                self.send_header('Content-Security-Policy',
+                                 "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
                 self.end_headers()
                 self.wfile.write(body)
             except (BrokenPipeError, ConnectionResetError):
@@ -336,6 +382,12 @@ def create_http_server(api: DashboardAPI, port: int = 8080) -> ThreadingHTTPServ
                 path = urlsplit(self.path).path
                 if method == 'GET' and path == '/api/session':
                     self._respond(200, {'session_token': session_token})
+                    return
+                if method == 'GET' and static_root is not None and not path.startswith('/api/'):
+                    found = read_static(static_root, path)
+                    if found is None:
+                        raise ApiError(404, 'not_found', 'Unknown path')
+                    self._respond_static(*found)
                     return
                 data = {}
                 if method == 'POST':
