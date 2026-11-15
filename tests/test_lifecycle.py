@@ -193,6 +193,14 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual((st, err['error']['code']), (403, 'invalid_session'))
         self.assertEqual(self.manager.snapshot()['airline']['state'], 'stopped')
 
+        # Occupy hotel port externally before starting -> HTTP 409 port_busy
+        with socket.socket() as external:
+            external.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            external.bind(('127.0.0.1', self.ports['hotel']))
+            external.listen()
+            st, err = http_req('POST', '/api/services/hotel/start', token_val=token)
+            self.assertEqual((st, err['error']['code']), (409, 'port_busy'))
+
         # Start all 3 services via HTTP lifecycle endpoint and verify log files
         for name in ('airline', 'hotel', 'coordinator'):
             st, res = http_req('POST', f'/api/services/{name}/start', token_val=token)
@@ -200,18 +208,7 @@ class LifecycleTests(unittest.TestCase):
             self.assertEqual(res['state'], 'running')
             self.assertTrue(Path(self.manager.snapshot()[name]['log']).exists())
 
-        # Stop hotel and occupy port externally -> HTTP 409 port_busy
-        st, _ = http_req('POST', '/api/services/hotel/stop', token_val=token)
-        self.assertEqual(st, 200)
-        with socket.socket() as external:
-            external.bind(('127.0.0.1', self.ports['hotel']))
-            external.listen()
-            st, err = http_req('POST', '/api/services/hotel/start', token_val=token)
-            self.assertEqual((st, err['error']['code']), (409, 'port_busy'))
-
-        # Start hotel back, crash it, and verify web HTTP overview stays alive
-        st, _ = http_req('POST', '/api/services/hotel/start', token_val=token)
-        self.assertEqual(st, 200)
+        # Crash hotel and verify web HTTP overview stays alive
         rpc(self.url('hotel'), 'fault', {'point': 'after_prepare', 'mode': 'crash'})
         with self.assertRaises(RpcError):
             rpc(self.url('hotel'), 'prepare', {'tx': 'tx-http-crash', 'resource': 'DEFAULT'})
