@@ -51,6 +51,20 @@ def fetch_json(url: str):
         return json.load(response)
 
 
+def stop_dashboard(proc) -> None:
+    """Dừng nhẹ để run_dashboard dọn các child; chỉ kill cứng khi quá hạn."""
+    if proc.poll() is not None:
+        return
+    try:
+        if os.name == 'nt':
+            proc.send_signal(signal.CTRL_BREAK_EVENT)
+        else:
+            proc.terminate()
+        proc.wait(timeout=30)
+    except Exception:
+        proc.kill()
+
+
 class Report:
     def __init__(self, out: Path):
         self.out, self.rows, self.page = out, [], None
@@ -93,7 +107,7 @@ def main() -> int:
     stamp = datetime.now().strftime('%Y%m%d-%H%M%S')
     out = Path(args.out) if args.out else ROOT / 'browser_evidence' / stamp
     out.mkdir(parents=True, exist_ok=True)
-    tmp = tempfile.TemporaryDirectory(prefix='htpt2pc-')
+    tmp = tempfile.TemporaryDirectory(prefix='htpt2pc-', ignore_cleanup_errors=True)
     data_dir, log_dir = Path(tmp.name) / 'data', Path(tmp.name) / 'logs'
     dash_port = free_port(18080)
     base = free_port(18200)
@@ -105,7 +119,8 @@ def main() -> int:
     dash = subprocess.Popen([sys.executable, 'run_dashboard.py', '--port', str(dash_port), '--base-port', str(base),
                              '--data-dir', str(data_dir), '--log-dir', str(log_dir)], cwd=ROOT,
                             stdout=open(out / 'dashboard_stdout.log', 'wb'), stderr=subprocess.STDOUT,
-                            stdin=subprocess.DEVNULL, creationflags=flags)
+                            stdin=subprocess.DEVNULL, creationflags=flags,
+                            env={**os.environ, 'PYTHONIOENCODING': 'utf-8', 'PYTHONUTF8': '1'})
     rep = Report(out)
     page_errors, max_inflight = [], {'now': 0, 'max': 0}
     try:
@@ -119,7 +134,10 @@ def main() -> int:
                 pass
             time.sleep(0.5)
         else:
-            print('Cụm dịch vụ không lên đủ trong 40 giây — xem dashboard_stdout.log'); return 3
+            print('Cụm dịch vụ không lên đủ trong 40 giây. Nội dung dashboard_stdout.log:')
+            stop_dashboard(dash)
+            print((out / 'dashboard_stdout.log').read_text(encoding='utf-8', errors='replace')[-2000:])
+            return 3
 
         with sync_playwright() as pw:
             kind = pw.chromium
@@ -401,11 +419,8 @@ def main() -> int:
 
         # ---------- dọn dẹp: A13 ----------
         def a13():
-            if os.name == 'nt':
-                dash.send_signal(signal.CTRL_BREAK_EVENT)
-            else:
-                dash.terminate()
-            dash.wait(timeout=30)
+            stop_dashboard(dash)
+            assert dash.poll() is not None, 'dashboard chưa thoát'
             time.sleep(0.5)
             alive = [n for n, p in ports.items() if port_open(p)]
             assert not alive, f'child còn sống sau khi dừng dashboard: {alive}'
@@ -415,8 +430,7 @@ def main() -> int:
         rep.page = None
         rep.step('A13', 'Dừng dashboard dọn đúng child, giữ DB', a13)
     finally:
-        if dash.poll() is None:
-            dash.kill()
+        stop_dashboard(dash)
         for f in log_dir.glob('*.log') if log_dir.exists() else []:
             (out / f'service_{f.name}').write_bytes(f.read_bytes())
         tmp.cleanup()

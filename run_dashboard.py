@@ -37,12 +37,26 @@ def autostart(manager) -> None:
     for name in START_ORDER:
         try:
             manager.control(name, 'start')
-            print(f'[dashboard] {name}: đã chạy', flush=True)
+            message = f'[dashboard] {name}: đã chạy'
         except Exception as exc:  # lỗi (ví dụ cổng bận) hiện trên giao diện, không dừng web
-            print(f'[dashboard] {name}: không chạy được — {exc}', flush=True)
+            message = f'[dashboard] {name}: không chạy được — {exc}'
+        try:
+            print(message, flush=True)
+        except Exception:  # ghi log lỗi không được làm chết luồng khởi động các dịch vụ còn lại
+            pass
+
+
+def force_utf8_output() -> None:
+    # Khi stdout bị chuyển hướng ra tệp/pipe, Windows dùng bảng mã cp1252 và print tiếng Việt sẽ lỗi.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError):
+            pass
 
 
 def main() -> None:
+    force_utf8_output()
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--port', type=int, default=8080, help='cổng dashboard (mặc định 8080)')
     parser.add_argument('--base-port', type=int, default=8000,
