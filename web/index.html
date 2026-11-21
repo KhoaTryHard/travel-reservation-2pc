@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đặt combo du lịch — Trình diễn 2PC</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#booking-title">Bỏ qua tới phần đặt combo</a>
+
+<header class="top">
+  <div>
+    <h1>Đặt combo du lịch — trình diễn 2PC</h1>
+    <p class="sub">Một chỗ máy bay + một phòng khách sạn trên hai cơ sở dữ liệu độc lập, điều phối bằng Two-Phase Commit.</p>
+  </div>
+  <div class="top-status">
+    <p id="last-update" aria-live="off">Cập nhật lần cuối: chưa có</p>
+    <p id="poll-state" class="badge muted">Đang kết nối…</p>
+  </div>
+</header>
+
+<div id="banner" class="banner" role="alert" hidden></div>
+<noscript><p class="banner">Cần bật JavaScript để dùng dashboard.</p></noscript>
+
+<main>
+  <section aria-labelledby="svc-title">
+    <h2 id="svc-title">Dịch vụ</h2>
+    <div class="grid3">
+      <article class="card service" data-name="coordinator">
+        <h3>Coordinator <span class="port">127.0.0.1:8000</span></h3>
+        <p class="badge muted" data-role="life">Chưa có dữ liệu</p>
+        <p data-role="health" class="line"></p>
+        <p data-role="meta" class="meta"></p>
+        <p data-role="error" class="errline" hidden></p>
+        <div class="btns">
+          <button type="button" data-action="start">Chạy</button>
+          <button type="button" data-action="stop">Dừng</button>
+          <button type="button" data-action="restart">Khởi động lại</button>
+        </div>
+        <p data-role="msg" class="note" aria-live="polite"></p>
+      </article>
+      <article class="card service" data-name="airline">
+        <h3>Airline RM <span class="port">127.0.0.1:8001</span></h3>
+        <p class="badge muted" data-role="life">Chưa có dữ liệu</p>
+        <p data-role="health" class="line"></p>
+        <p data-role="meta" class="meta"></p>
+        <p data-role="error" class="errline" hidden></p>
+        <div class="btns">
+          <button type="button" data-action="start">Chạy</button>
+          <button type="button" data-action="stop">Dừng</button>
+          <button type="button" data-action="restart">Khởi động lại</button>
+        </div>
+        <p data-role="msg" class="note" aria-live="polite"></p>
+      </article>
+      <article class="card service" data-name="hotel">
+        <h3>Hotel RM <span class="port">127.0.0.1:8002</span></h3>
+        <p class="badge muted" data-role="life">Chưa có dữ liệu</p>
+        <p data-role="health" class="line"></p>
+        <p data-role="meta" class="meta"></p>
+        <p data-role="error" class="errline" hidden></p>
+        <div class="btns">
+          <button type="button" data-action="start">Chạy</button>
+          <button type="button" data-action="stop">Dừng</button>
+          <button type="button" data-action="restart">Khởi động lại</button>
+        </div>
+        <p data-role="msg" class="note" aria-live="polite"></p>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="inv-title">
+    <h2 id="inv-title">Tồn kho</h2>
+    <div class="grid2">
+      <article class="card inventory" data-name="airline">
+        <h3>Chỗ máy bay (Airline)</h3>
+        <p class="fresh" data-role="fresh"></p>
+        <div data-role="body"></div>
+      </article>
+      <article class="card inventory" data-name="hotel">
+        <h3>Phòng khách sạn (Hotel)</h3>
+        <p class="fresh" data-role="fresh"></p>
+        <div data-role="body"></div>
+      </article>
+    </div>
+    <p class="hint">“Tồn” là số lượng chưa trừ commit. “Đang giữ” lấy từ reservation PREPARED. “Chưa giữ” = max(tồn − đang giữ, 0) và <strong>không</strong> hứa nhận được booking mới: khóa độc quyền theo resource có thể từ chối khi đang chờ quyết định.</p>
+  </section>
+
+  <div class="grid2 top-align">
+    <section class="card" aria-labelledby="booking-title">
+      <h2 id="booking-title">Đặt combo</h2>
+      <form id="bk-form" autocomplete="off">
+        <label for="bk-token">Mã yêu cầu (idempotency token)</label>
+        <div class="row">
+          <input id="bk-token" type="text" maxlength="128" required spellcheck="false">
+          <button type="button" id="bk-newtoken" class="secondary">Mã mới</button>
+        </div>
+        <div class="row two">
+          <div>
+            <label for="bk-airline">Airline</label>
+            <select id="bk-airline"><option value="DEFAULT">DEFAULT</option></select>
+          </div>
+          <div>
+            <label for="bk-hotel">Hotel</label>
+            <select id="bk-hotel">
+              <option value="DEFAULT">DEFAULT</option>
+              <option value="MISSING">MISSING (không tồn tại → ABORT)</option>
+            </select>
+          </div>
+        </div>
+        <div class="btns">
+          <button type="submit" id="bk-submit">Đặt combo</button>
+          <button type="button" id="bk-retry" class="secondary">Gửi lại</button>
+          <button type="button" id="bk-check" class="secondary">Kiểm tra</button>
+          <button type="button" id="bk-discard" class="secondary danger">Hủy bản lưu</button>
+        </div>
+      </form>
+      <p id="bk-lock" class="note" hidden></p>
+      <div id="bk-status" class="status" role="status" aria-live="polite"></div>
+      <div id="bk-result"></div>
+      <p class="hint">“Gửi lại” luôn dùng đúng mã và nội dung đã lưu trên trình duyệt, kể cả sau khi tải lại trang. Không có token mới tự sinh cho yêu cầu cũ.</p>
+    </section>
+
+    <section class="card" aria-labelledby="demo-title">
+      <h2 id="demo-title">Demo: gây lỗi và tải đồng thời</h2>
+      <h3>Gây lỗi một lần</h3>
+      <form id="ft-form" autocomplete="off" novalidate>
+        <div class="row two">
+          <div>
+            <label for="ft-service">Node</label>
+            <select id="ft-service">
+              <option value="coordinator">Coordinator</option>
+              <option value="airline">Airline</option>
+              <option value="hotel">Hotel</option>
+            </select>
+          </div>
+          <div>
+            <label for="ft-point">Điểm lỗi</label>
+            <select id="ft-point"></select>
+          </div>
+        </div>
+        <div class="row two">
+          <div>
+            <label for="ft-mode">Kiểu lỗi</label>
+            <select id="ft-mode">
+              <option value="crash">crash (thoát tiến trình)</option>
+              <option value="delay">delay (chờ)</option>
+            </select>
+          </div>
+          <div>
+            <label for="ft-seconds">Số giây delay (0–30)</label>
+            <input id="ft-seconds" type="number" min="0" max="30" step="0.5" value="3">
+          </div>
+        </div>
+        <p id="ft-hint" class="hint"></p>
+        <div class="btns"><button type="submit" id="ft-submit">Kích hoạt một lần</button></div>
+      </form>
+      <div id="ft-status" class="status" role="status" aria-live="polite"></div>
+      <ul id="ft-armed" class="plain"></ul>
+
+      <h3>Tải đồng thời</h3>
+      <form id="ld-form" autocomplete="off" novalidate>
+        <div class="row two">
+          <div>
+            <label for="ld-count">Số booking (1–50)</label>
+            <input id="ld-count" type="number" min="1" max="50" step="1" value="10">
+          </div>
+          <div>
+            <label for="ld-workers">Số worker (1–8)</label>
+            <input id="ld-workers" type="number" min="1" max="8" step="1" value="4">
+          </div>
+        </div>
+        <div class="btns"><button type="submit" id="ld-submit">Chạy tải</button></div>
+      </form>
+      <div id="ld-status" class="status" role="status" aria-live="polite"></div>
+      <progress id="ld-progress" max="1" value="0" hidden></progress>
+      <p id="ld-summary" class="line"></p>
+      <div class="tablewrap" id="ld-wrap" hidden>
+        <table class="data" aria-label="Kết quả từng booking trong đợt tải">
+          <thead><tr><th>#</th><th>Mã yêu cầu</th><th>Kết quả</th><th>tx</th><th>ACK</th></tr></thead>
+          <tbody id="ld-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <section aria-labelledby="tx-title">
+    <h2 id="tx-title">Giao dịch</h2>
+    <div class="grid2 top-align wide-left">
+      <div class="card">
+        <div class="filters" role="group" aria-label="Lọc giao dịch" id="tx-filters">
+          <button type="button" data-filter="all" aria-pressed="true">Tất cả</button>
+          <button type="button" data-filter="processing" aria-pressed="false">Đang xử lý</button>
+          <button type="button" data-filter="commit" aria-pressed="false">Commit</button>
+          <button type="button" data-filter="abort" aria-pressed="false">Abort</button>
+          <button type="button" data-filter="pending" aria-pressed="false">Chưa đủ xác nhận</button>
+        </div>
+        <p id="tx-fresh" class="fresh"></p>
+        <p id="tx-empty" class="note" hidden></p>
+        <div class="tablewrap">
+          <table class="data" id="tx-table" aria-label="Danh sách giao dịch (mới nhất ở trên)">
+            <thead><tr><th>tx</th><th>Mã yêu cầu</th><th>Quyết định</th><th>Airline</th><th>Hotel</th><th>ACK</th><th>Tình trạng</th></tr></thead>
+            <tbody id="tx-body"></tbody>
+          </table>
+        </div>
+        <p class="hint">Sắp xếp theo thứ tự ghi trong Coordinator. Trạng thái Airline/Hotel đọc từ snapshot của từng node tại thời điểm khác nhau nên có thể tạm lệch nhau.</p>
+      </div>
+      <div class="card" id="tx-detail" aria-live="off">
+        <h3>Chi tiết giao dịch</h3>
+        <p class="note">Chọn một giao dịch trong bảng để xem payload, ACK, reservation, khóa và events từng node.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>Chỉ chạy trên loopback (127.0.0.1). Snapshot của các node không phải một ảnh chụp phân tán nhất quán; events được sắp theo seq trong từng node, không có thứ tự thời gian toàn cục.</p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>
