@@ -241,3 +241,46 @@ thì không suy số giờ blocker từ thời gian lịch. Giữ hạn gốc v�
 Tiến độ nghiệm thu tính tổng effort kế hoạch của task Done có bằng chứng /126h;
 không tính issue điều phối, giờ đã dùng, task not planned hay phần contract còn pending.
 Không đóng W03/W04 chỉ vì đã có test API hoặc checklist này.
+
+## Đối chiếu tracker và PR trước tích hợp
+
+Ảnh chụp trạng thái quản lý ngày 09/11/2026: source `0911815a8180ca7fa7ff0fd917eea8c9a21aa527`,
+issue #3–#11 và PR #27–#31 trên GitHub. Đây là mốc đối chiếu, không phải tracker realtime.
+Issue và comment trên GitHub vẫn là nơi cập nhật tiến độ; bảng này không ghi nhận giờ thực dùng.
+
+| Phạm vi | Đã có bằng chứng | Phần chưa nghiệm thu / owner / mốc kiểm tra |
+|---|---|---|
+| W01 #4 / PR #27 | Contract, JSON, deadline, session và interface manager đã merge | Hữu xác nhận RM/ownership (#12); Khánh xác nhận envelope/session (#19); Khoa chốt quỹ giờ/máy demo/lịch. Hạn gốc 08/11, dự báo toàn phần 10/11 |
+| W02a #5 / PR #28 | API overview/booking/detail; issue đóng và checklist đã đánh dấu | Done đúng phạm vi 4h; không thay nghiệm thu M1 |
+| W02b #6 / PR #29 | Fault/unknown, crash/replay/lost ACK; issue đóng và checklist đã đánh dấu | Done đúng phạm vi 4h; không thay nghiệm thu browser |
+| W02c #7 / PR #30 | Load nền, adapter, validation và HTTP với RPC thật; CI 34 test/bốn job | Khoa nối manager thật sau W06 của Hữu; lifecycle/ownership/cleanup/DB **chưa chạy**. Bàn giao W06a 10/11; gate M1 13/11 |
+| W03a #8 / W03b #9 | Có baseline API để chuẩn bị ca nghiệm thu | Khoa tích hợp; Hữu cung cấp W06/W07, Khánh cung cấp W09/W10. Web/lifecycle/browser **chưa chạy**. M1 13/11, M2 15/11, G10 16/11 |
+| W04a #10 / PR #31 | Bản kiến trúc và bàn giao Markdown; CI bốn job của #31 đạt | Hữu W08, Khánh W11a/browser; Khoa ghép và xác nhận MSSV/lớp/GV, Word/Drive/source, bàn giao thử. **Chưa chạy**, hạn 18/11 |
+| W04b #11 | Checklist diễn tập và phát hành đã chuẩn bị | Khoa điều phối cùng Hữu/Khánh; diễn tập 19/11 và duyệt bản nộp 20/11 **chưa chạy** |
+
+Chỉ #5 + #6 Done: **8/42h kế hoạch của Khoa (19,05%) và 8/126h của nhóm (6,35%)**.
+Không cộng phần bàn giao của #4/#7/#10 hoặc task chuẩn bị tài liệu; không tách effort để
+tăng tiến độ. Effort còn lại thực tế và số giờ blocker cần owner xác nhận.
+
+### Metadata cần đối chiếu khi Khoa mở hoặc chỉnh PR
+
+PR #27/#30/#31 dùng `Refs` nhưng truy vấn `closingIssuesReferences` vẫn lần lượt trả
+#4/#7/#10. Cả ba issue còn mở. Khoa cần kiểm tra mục Development và gỡ liên kết đóng
+issue nếu không chủ định đóng toàn phần; sửa body đơn thuần không chứng minh liên kết
+đã được gỡ. Lượt đối chiếu này không sửa metadata hoặc đóng issue trên GitHub.
+
+| PR | Liên kết đúng phạm vi | Metadata và kiểm tra còn lại |
+|---|---|---|
+| #27 | Refs #4; W01 còn chờ xác nhận | Owner Khoa; documentation/priority:P0; M0. Kiểm tra Development #4 |
+| #28 / #29 | Closes #5 / Closes #6, hai issue đã Done | Hiện chưa có assignee/label/milestone; khi bổ sung dùng Khoa, enhancement/priority:P0, M1; không suy M1 đã đạt |
+| #30 | Refs #7; giữ W02c mở | Owner Khoa; enhancement/priority:P0; M1. Kiểm tra Development #7 |
+| #31 | Refs #10, #8, #9, #11, #3 | Owner Khoa; documentation; milestone M3. Issue #10 là priority:P1 nhưng PR đang priority:P0: Khoa đối chiếu lý do trước khi đổi. Kiểm tra Development #10 |
+
+PR #1/#2 là workflow/kế hoạch trước backlog triển khai; không lấy chúng đóng W01–W11
+hoặc cộng thêm giờ. Không tạo issue/milestone quá khứ chỉ để đủ trường. Reviewer/Approve
+và sự đồng thuận của thành viên phải có bằng chứng thực tế.
+
+Khi bàn giao từng nhánh độc lập: ghi commit, `Refs #issue`, lệnh/kết quả local, phần chưa
+chạy và đầu vào còn thiếu; Khoa tự tạo PR vào develop. Bốn job CI phải kiểm tra lại trên
+head của PR mới. Baseline #31 có [CI riêng](https://github.com/KhoaTryHard/travel-reservation-2pc/actions/runs/42577160508);
+kết quả đó không đại diện CI của các nhánh bổ sung.
