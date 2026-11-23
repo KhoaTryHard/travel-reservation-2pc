@@ -1,4 +1,4 @@
-# Tài Liệu Kỹ Thuật, Kiến Trúc Dữ Liệu, Lifecycle & Vận Hành — SV2 (Trần Lê Quang Hữu)
+# Bàn giao phần của Hữu (SV2) — Resource Manager, Dữ liệu/Khóa, Lifecycle & Vận hành
 
 **Học phần:** Hệ thống Phân tán (INT1405) — Học viện Công nghệ Bưu chính Viễn thông (PTIT)  
 **Đề tài (Track B):** Hệ thống Đặt chỗ Du lịch Phân tán với Two-Phase Commit (2PC)  
@@ -145,4 +145,4 @@ Mỗi Resource Manager (`airline` và `hotel`) sử dụng một tệp SQLite đ
 | **#15 (`W06c`)** | Ownership, cổng bận và cleanup an toàn | [lifecycle.py](../lifecycle.py) (`_port_busy`, `close_all`, `control`), Test 3, 7, 8, 9 trong [tests/test_lifecycle.py](../tests/test_lifecycle.py). |
 | **#16 (`W07a`)** | Kiểm thử crash/recovery, PREPARED và tombstone | Test 4, 10, 11 trong [tests/test_lifecycle.py](../tests/test_lifecycle.py) kết hợp [tests/test_system.py](../tests/test_system.py). |
 | **#17 (`W07b`)** | Hồi quy lifecycle/cổng và bàn giao bằng chứng | Toàn bộ 11/11 test trong [tests/test_lifecycle.py](../tests/test_lifecycle.py) và toàn bộ suite trên 4 môi trường CI. |
-| **#18 (`W08`)** | Tài liệu dữ liệu, lifecycle và vận hành | Tài liệu [docs/SV2_GUIDE.md](SV2_GUIDE.md) này (sơ đồ DB, khóa, lifecycle, vận hành, chuẩn bị demo). |
+| **#18 (`W08`)** | Tài liệu dữ liệu, lifecycle và vận hành | Tài liệu [docs/HUU_HANDOFF.md](HUU_HANDOFF.md) này (sơ đồ DB, khóa, lifecycle, vận hành, chuẩn bị demo). |
