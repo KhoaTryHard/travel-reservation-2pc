@@ -350,7 +350,7 @@ def create_http_server(api: DashboardAPI, port: int = 8080,
                 self.send_header('X-Content-Type-Options', 'nosniff')
                 self.end_headers()
                 self.wfile.write(body)
-            except (BrokenPipeError, ConnectionResetError):
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
                 pass
 
         def _respond_static(self, body: bytes, content_type: str) -> None:
@@ -364,7 +364,7 @@ def create_http_server(api: DashboardAPI, port: int = 8080,
                                  "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
                 self.end_headers()
                 self.wfile.write(body)
-            except (BrokenPipeError, ConnectionResetError):
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
                 pass
 
         def _handle(self, method: str) -> None:
