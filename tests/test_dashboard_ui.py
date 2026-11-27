@@ -60,6 +60,10 @@ class HtmlContractTests(unittest.TestCase):
         missing = sorted(i for i in ids if f'id="{i}"' not in html)
         self.assertEqual(missing, [])
 
+    def test_no_hardcoded_service_ports_in_html(self):
+        html = (WEB / 'index.html').read_text(encoding='utf-8')
+        self.assertIsNone(re.search(r'127\.0\.0\.1:\d+', html))
+
     def test_no_inline_style_or_script_that_csp_would_block(self):
         html = (WEB / 'index.html').read_text(encoding='utf-8')
         js = (WEB / 'app.js').read_text(encoding='utf-8')

@@ -238,8 +238,10 @@ function renderServices() {
       if (S.dashDown) health = 'Health: không rõ (mất kết nối dashboard)';
     }
     setText($('[data-role=health]', card), health);
+    // Cổng lấy từ bộ quản lý tiến trình (cổng thật đang dùng); không có thì để trống, không ghi cứng.
+    setText($('[data-role=port]', card), lc.managed && lc.port ? `127.0.0.1:${lc.port}` : '');
     const meta = [];
-    if (lc.managed) { meta.push(lc.pid ? `PID ${lc.pid}` : 'không có tiến trình'); if (lc.port) meta.push(`cổng ${lc.port}`); }
+    if (lc.managed) meta.push(lc.pid ? `PID ${lc.pid}` : 'không có tiến trình');
     if (n && n.last_success_at) meta.push(`đọc thành công lúc ${clock(n.last_success_at)}`);
     if (lc.managed && lc.log) meta.push(`log: ${lc.log}`);
     setText($('[data-role=meta]', card), meta.join(' • '));
