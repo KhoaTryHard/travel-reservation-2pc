@@ -209,10 +209,12 @@ def main() -> int:
                 for n in ('coordinator', 'airline', 'hotel'):
                     wait_svc(n, 'Đang chạy')
                 wait_avail('airline', 5); wait_avail('hotel', 5)
+                for n, pt in ports.items():
+                    wait_text(f'.service[data-name={n}] h3', f'127.0.0.1:{pt}')
                 width = page.evaluate('[document.documentElement.scrollWidth, window.innerWidth]')
                 assert width[0] <= width[1] + 1, f'tràn ngang ở 1280px: {width}'
                 rep.shot('00_khoi_dong')
-                return 'ba node Đang chạy; mỗi RM 5 DEFAULT; không tràn ngang ở 1280px'
+                return 'ba node Đang chạy; tiêu đề hiện đúng cổng thật; mỗi RM 5 DEFAULT; không tràn ngang ở 1280px'
             rep.step('A00', 'Khởi động: ba node chạy, tồn 5/5', a00)
 
             state = {}
